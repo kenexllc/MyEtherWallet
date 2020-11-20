@@ -6,6 +6,7 @@ import {
 import * as utils from './utils';
 import qrcodeBuilder from './qrCodeBuilder';
 import hasIcon from './haveIcon';
+import { canValidateMulticoin, canValidateCoin } from './canValidate';
 const isValidEntry = utils.isValidEntry;
 const checkInvalidOrMissingValue = utils.checkInvalidOrMissingValue;
 
@@ -17,5 +18,7 @@ export {
   checkInvalidOrMissingValue,
   dynamicSortMultiple,
   qrcodeBuilder,
-  hasIcon
+  hasIcon,
+  canValidateMulticoin,
+  canValidateCoin
 };

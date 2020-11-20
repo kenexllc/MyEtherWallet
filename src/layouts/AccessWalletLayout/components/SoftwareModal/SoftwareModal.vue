@@ -1,13 +1,15 @@
 <template>
   <b-modal
     ref="software"
-    :title="$t('accessWallet.accessBySoftware')"
+    :title="$t('accessWallet.software.modal.title')"
     hide-footer
     class="bootstrap-modal nopadding modal-software"
     centered
+    static
+    lazy
   >
     <div class="warning">
-      <warning-message :options="warningOptions" />
+      <warning-message />
     </div>
     <div class="content-block">
       <div class="d-block content-container text-center">
@@ -17,17 +19,17 @@
             :key="item.name + idx"
             :selected="selected === item.name"
             :hover-icon="item.imgHoverPath"
-            :text="item.text"
+            :text="$t(item.text)"
             :name="item.name"
             @updateSelected="updateSelected"
           />
         </div>
         <div class="hardware-link">
           <p>
-            {{ $t('accessWallet.buyHardwareWallet') }}
+            {{ $t('accessWallet.software.modal.purchase-text') }}
           </p>
           <router-link to="/hardware-wallet-affiliates">{{
-            $t('accessWallet.buyHardwareWalletLink')
+            $t('accessWallet.software.modal.purchase-link')
           }}</router-link>
         </div>
         <input
@@ -38,15 +40,17 @@
           @change="uploadFile"
         />
       </div>
-      <div class="button-container">
-        <b-btn
-          :class="[
-            selected !== '' ? 'enabled' : 'disabled',
-            'mid-round-button-green-filled'
-          ]"
-          @click="continueAccess"
-          >{{ $t('common.continue') }}</b-btn
-        >
+      <div class="button-container-block">
+        <standard-button
+          :button-disabled="selected !== '' ? false : true"
+          :options="{
+            title: $t('common.continue'),
+            buttonStyle: 'green',
+            noMinWidth: true,
+            fullWidth: true
+          }"
+          :click-function="continueAccess"
+        />
       </div>
       <customer-support />
     </div>
@@ -60,13 +64,15 @@ import byJsonImgHov from '@/assets/images/icons/button-json-hover.svg';
 import byMnemImgHov from '@/assets/images/icons/button-mnemonic-hover.svg';
 import privKeyImgHov from '@/assets/images/icons/button-key-hover.svg';
 import WalletOption from '../WalletOption';
+import StandardButton from '@/components/Buttons/StandardButton';
 import { Toast } from '@/helpers';
 
 export default {
   components: {
     'customer-support': CustomerSupport,
     'wallet-option': WalletOption,
-    'warning-message': WarningMessage
+    'warning-message': WarningMessage,
+    'standard-button': StandardButton
   },
   props: {
     value: {
@@ -75,44 +81,36 @@ export default {
     },
     openPassword: {
       type: Function,
-      default: function() {}
+      default: function () {}
     },
     openMnemonicPhraseInput: {
       type: Function,
-      default: function() {}
+      default: function () {}
     },
     openPrivateKeyInput: {
       type: Function,
-      default: function() {}
+      default: function () {}
     }
   },
   data() {
     return {
-      warningOptions: {
-        title: 'NOT RECOMMENDED',
-        message: this.$t('accessWallet.notARecommendedWay'),
-        link: {
-          text: 'Using MEW Offline',
-          url: 'https://kb.myetherwallet.com/posts/offline/using-mew-offline/'
-        }
-      },
       file: '',
       selected: '',
       items: [
         {
           name: 'byJson',
           imgHoverPath: byJsonImgHov,
-          text: this.$t('common.jsonF')
+          text: 'accessWallet.json-file'
         },
         {
           name: 'byMnem',
           imgHoverPath: byMnemImgHov,
-          text: this.$t('common.mnemonicP')
+          text: 'accessWallet.mnemonic.string'
         },
         {
           name: 'byPriv',
           imgHoverPath: privKeyImgHov,
-          text: this.$t('common.privKey')
+          text: 'accessWallet.private-key.string'
         }
       ]
     };
@@ -149,7 +147,7 @@ export default {
     uploadFile(e) {
       const self = this;
       const reader = new FileReader();
-      reader.onloadend = function(evt) {
+      reader.onloadend = function (evt) {
         try {
           self.$emit('file', JSON.parse(evt.target.result));
           self.file = JSON.parse(evt.target.result);

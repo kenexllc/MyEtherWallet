@@ -20,10 +20,11 @@ import {
   RSKTEST,
   TOMO,
   UBQ,
-  TT
+  TT,
+  PHT,
+  ERE
 } from '@/networks/types';
 import {
-  ethereum,
   ledgerEthereum,
   ledgerLiveEthereum,
   ledgerEthereumClassic,
@@ -47,14 +48,15 @@ import {
   mixBlockchain,
   rskMainnet,
   rskTestnet,
-  thundercore
+  thundercore,
+  lightstreamsNetwork,
+  ethercore
 } from '../../bip44/paths';
-ethereum['label'] = 'Ethereum (Trezor)';
 const appList = [
   {
     network: ETH,
     prefixes: ["m/44'/60'"],
-    paths: [ledgerEthereum, ledgerLiveEthereum, ethereum]
+    paths: [ledgerEthereum, ledgerLiveEthereum]
   },
   {
     network: ELLA,
@@ -160,6 +162,16 @@ const appList = [
     network: TT,
     prefixes: ["m/44'/1001'"],
     paths: [thundercore]
+  },
+  {
+    network: PHT,
+    prefixes: ["m/44'/60'"],
+    paths: [lightstreamsNetwork]
+  },
+  {
+    network: ERE,
+    prefixes: ["m/44'/466'"],
+    paths: [ethercore]
   }
 ];
 export default appList;

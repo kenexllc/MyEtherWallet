@@ -17,7 +17,6 @@ const BModalStub = {
   }
 };
 
-//xdescribe
 describe('InterfaceNetwork.vue', () => {
   let localVue, i18n, wrapper, store;
 
@@ -28,7 +27,6 @@ describe('InterfaceNetwork.vue', () => {
     store = baseSetup.store;
 
     Vue.config.warnHandler = () => {};
-    Vue.config.silent = true;
   });
 
   beforeEach(() => {
@@ -44,8 +42,13 @@ describe('InterfaceNetwork.vue', () => {
     });
   });
 
+  afterEach(() => {
+    wrapper.destroy();
+    wrapper = null;
+  });
+
   xit('[Failing] should render correct blockNumber props', () => {
-    const blockNumber = 100;
+    const blockNumber = 10000000000;
     wrapper.setProps({ blockNumber });
     expect(wrapper.find('.information-container span').text()).toEqual(
       String(blockNumber)

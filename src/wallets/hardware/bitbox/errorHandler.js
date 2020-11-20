@@ -1,27 +1,28 @@
 import { Toast } from '@/helpers';
 import Vue from 'vue';
 const ERRORS = {
-  'Sign failed': 'bitboxError.signFailed',
-  'The BitBox received unexpected data.': 'bitboxError.invalidPassword',
-  'Aborted by user.': 'bitboxError.userAbortedAction'
+  errorUnexpected: 'bitboxError.unexpected',
+  errorInvalidPassword: 'bitboxError.invalid-password',
+  errorUserAbort: 'bitboxError.user-abort',
+  errorUserTimeout: 'bitboxError.user-timeout',
+  errorNotInitialized: 'bitboxError.not-initialized',
+  errorUpgradeFirmware: 'bitboxError.upgrade-firmware',
+  errorUnsupportedFirmware: 'bitboxError.unsupported-firmware'
 };
 const WARNING = {};
 
 export default err => {
-  const parsedErr = err.message
+  const loginsRemaining = err.message
     ? err.message.replace(/\D/g, '')
     : err.replace(/\D/g, '');
-  const attempts = parsedErr.length > 0 ? parsedErr : '';
+  const attempts = loginsRemaining.length > 0 ? loginsRemaining : '';
   const errorValues = Object.keys(ERRORS);
   const warningValues = Object.keys(WARNING);
   const foundError = errorValues.find(item => {
-    if (err) return item;
-    return item.includes(err.message) || item.includes(err);
+    return err.message ? err.message.includes(item) : err.includes(item);
   });
-
   const foundWarning = warningValues.find(item => {
-    if (err) return item;
-    return item.includes(err.message) || item.includes(err);
+    return err.message ? err.message.includes(item) : err.includes(item);
   });
 
   if (foundError) {

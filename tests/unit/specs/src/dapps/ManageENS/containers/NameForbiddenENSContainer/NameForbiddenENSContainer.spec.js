@@ -4,7 +4,9 @@ import { Tooling } from '@@/helpers';
 
 describe('NameForbiddenENSContainer.vue', () => {
   let localVue, i18n, wrapper, store;
-  const domainName = 'MyEtherWallet';
+
+  const domainName = 'domainName';
+
   beforeAll(() => {
     const baseSetup = Tooling.createLocalVueInstance();
     localVue = baseSetup.localVue;
@@ -22,11 +24,16 @@ describe('NameForbiddenENSContainer.vue', () => {
     });
   });
 
+  afterEach(() => {
+    wrapper.destroy();
+    wrapper = null;
+  });
+
   it('should render correct domain name', () => {
     expect(
       wrapper.vm.$el
         .querySelector('.name-forbidden-container h3')
         .textContent.trim()
-    ).toEqual(domainName + '.eth is not available yet!');
+    ).toEqual(`${domainName} is not available yet!`);
   });
 });

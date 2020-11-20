@@ -2,17 +2,19 @@
   <div class="modal-container">
     <b-modal
       ref="signConfirmation"
+      :title="$t('common.confirmation')"
       hide-footer
       centered
       class="bootstrap-modal-wide confirmation-modal nopadding"
-      title="Confirmation"
+      static
+      lazy
     >
       <div class="modal-content qrcode-modal">
         <div class="tx-info">
           <div class="tx-data tx-from">
             <div class="address-info">
               <p class="title address-title">
-                {{ $t('confirmation.signingAddr') }}
+                {{ $t('confirmation.signing-addr') }}
               </p>
               <div class="from-address">
                 <blockie
@@ -27,7 +29,7 @@
           <div v-if="hexToUtf8(messageToSign)" class="tx-data tx-to">
             <div class="address-info">
               <p class="title address-title">
-                {{ $t('interface.txSideMenuMessage') }}
+                {{ $t('signMessage.message') }}
               </p>
               <p class="message-to-sign">{{ hexToUtf8(messageToSign) }}</p>
             </div>
@@ -35,7 +37,7 @@
           <div class="tx-data tx-to">
             <div class="address-info">
               <p class="title address-title">
-                {{ $t('confirmation.messageInHex') }}
+                {{ $t('confirmation.message-in-hex') }}
               </p>
               <p class="message-to-sign">{{ messageToSign }}</p>
             </div>
@@ -52,17 +54,17 @@
                 ]"
                 @click="signMessage"
               >
-                {{ $t('confirmation.confirmSigning') }}
+                {{ $t('confirmation.confirm-signing') }}
               </div>
             </div>
           </div>
           <p class="learn-more">
-            Have any issues?
+            {{ $t('common.have-issues') }}
             <a
-              href="https:/kb.myetherwallet.com"
+              href="https://kb.myetherwallet.com"
               target="_blank"
               rel="noopener noreferrer"
-              >Learn more</a
+              >{{ $t('common.learn-more') }}</a
             >
           </p>
         </div>
@@ -74,7 +76,7 @@
 <script>
 import Blockie from '@/components/Blockie';
 import utils from 'web3-utils';
-import { mapGetters } from 'vuex';
+import { mapState } from 'vuex';
 
 export default {
   components: {
@@ -83,7 +85,7 @@ export default {
   props: {
     confirmSignMessage: {
       type: Function,
-      default: function() {}
+      default: function () {}
     },
     signedMessage: {
       type: String,
@@ -109,9 +111,7 @@ export default {
     };
   },
   computed: {
-    ...mapGetters({
-      account: 'account'
-    }),
+    ...mapState('main', ['account']),
     signedMessageSignature() {
       if (this.signedMessage) {
         return this.signedMessage;

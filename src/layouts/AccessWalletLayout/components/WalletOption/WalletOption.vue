@@ -9,21 +9,30 @@
       :class="[
         selected ? 'selected' : '',
         'wallet-option-container',
-        link !== '' ? 'has-link' : ''
+        link !== '' || name === 'BitBox' ? 'has-link' : ''
       ]"
     >
       <div class="img-title-container">
-        <img :src="hoverIcon ? hoverIcon : regularIcon" class="icon" />
+        <img :src="hoverIcon ? hoverIcon : regularIcon" class="icon" alt />
         <div class="title-link-container">
           <span>{{ text }}</span>
           <a
-            v-show="link !== ''"
+            v-show="name === xwalletType"
+            class="no-link"
+            href="https://xwallet.pundix.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {{ $t('accessWallet.get-it-now') }} >
+          </a>
+          <a
+            v-show="link !== '' && name !== xwalletType"
             :href="link"
             target="_blank"
             rel="noopener noreferrer"
             @click.stop
           >
-            Buy Now >
+            {{ $t('accessWallet.hardware.modal.button-buy') }} >
           </a>
         </div>
       </div>
@@ -36,6 +45,7 @@
   </div>
 </template>
 <script>
+import { XWALLET as XWALLET_TYPE } from '@/wallets/bip44/walletTypes';
 export default {
   props: {
     selected: {
@@ -69,6 +79,14 @@ export default {
     regularIcon: {
       type: String,
       default: ''
+    },
+    xwalletType: {
+      type: String,
+      default: XWALLET_TYPE
+    },
+    hasPromo: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -85,4 +103,9 @@ export default {
 </script>
 <style lang="scss" scoped>
 @import 'WalletOption.scss';
+
+.good-button {
+  font-size: 30px !important;
+  font-weight: bold !important;
+}
 </style>

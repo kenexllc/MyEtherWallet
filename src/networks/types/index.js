@@ -1,5 +1,6 @@
 import AKA from './AKA.js';
 import ATH from './ATH.js';
+import BSC from './BSC.js';
 import CLO from './CLO.js';
 import EGEM from './EGEM.js';
 import ELLA from './ELLA.js';
@@ -8,7 +9,8 @@ import ETC from './ETC.js';
 import ETH from './ETH.js';
 import ETHO from './ETHO.js';
 import EXP from './EXP.js';
-import GOERLI from './GOERLI';
+import FTM from './FTM.js';
+import GOERLI from './GOERLI.js';
 import GO from './GO.js';
 import IOLITE from './IOLITE.js';
 import KOV from './KOV.js';
@@ -24,14 +26,20 @@ import RSK from './RSK.js';
 import RSKTEST from './RSKTEST.js';
 import TOMO from './TOMO.js';
 import UBQ from './UBQ.js';
-import WEB from './WEB.js';
+import MINTME from './MINTME.js';
 import TT from './TT.js';
 import SUM from './SUM.js';
 import DXN from './DXN.js';
+import PHT from './PHT.js';
+import ERE from './ERE.js';
+import PRKL from './PRKL.js';
+import FUSE from './FUSE.js';
+import EWT from './EWT.js';
 
 export {
   AKA,
   ATH,
+  BSC,
   CLO,
   EGEM,
   ELLA,
@@ -40,6 +48,7 @@ export {
   ETH,
   ETHO,
   EXP,
+  FTM,
   GOERLI,
   GO,
   IOLITE,
@@ -56,8 +65,13 @@ export {
   RSKTEST,
   TOMO,
   UBQ,
-  WEB,
+  MINTME,
   TT,
   SUM,
-  DXN
+  DXN,
+  PHT,
+  ERE,
+  PRKL,
+  FUSE,
+  EWT
 };

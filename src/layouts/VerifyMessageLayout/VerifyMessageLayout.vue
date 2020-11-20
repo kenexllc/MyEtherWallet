@@ -1,13 +1,10 @@
-<template>
+<template functional>
   <div class="verify-message-layout">
-    <div class="verify-message-content">
-      <h2>Verify Message</h2>
-      <p>
-        Customize actions, debug reveals, and more with this set of advance
-        tools. Please be mindful of the capabilities and limitations of these
-        tools before using.
-      </p>
-      <verify-message-input />
+    <div class="page-container">
+      <div class="title-block">
+        <h2>{{ parent.$t('verifyMessage.title') }}</h2>
+      </div>
+      <component :is="injections.components.VerifyMessageInput" />
     </div>
   </div>
 </template>
@@ -15,8 +12,12 @@
 <script>
 import VerifyMessageInput from '@/components/VerifyMessageInput';
 export default {
-  components: {
-    'verify-message-input': VerifyMessageInput
+  inject: {
+    components: {
+      default: {
+        VerifyMessageInput
+      }
+    }
   }
 };
 </script>

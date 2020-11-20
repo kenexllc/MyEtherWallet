@@ -22,19 +22,18 @@ describe('AccordionMenu.vue', () => {
     });
   });
 
+  afterEach(() => {
+    wrapper.destroy();
+    wrapper = null;
+  });
+
   it('should render correct greytitle props', () => {
-    expect(
-      wrapper
-        .find('.menu-title')
-        .classes()
-        .indexOf('grey-title')
-    ).toBe(-1);
+    expect(wrapper.find('.menu-title').classes().indexOf('grey-title')).toBe(
+      -1
+    );
     wrapper.setProps({ greytitle: true });
     expect(
-      wrapper
-        .find('.menu-title')
-        .classes()
-        .indexOf('grey-title')
+      wrapper.find('.menu-title').classes().indexOf('grey-title')
     ).toBeGreaterThan(-1);
   });
 
@@ -46,25 +45,19 @@ describe('AccordionMenu.vue', () => {
   });
 
   it('should render correct title props', () => {
-    console.log(
+    const title = 'title';
+    wrapper.setProps({ title });
+    expect(
       wrapper.vm.$el.querySelectorAll('.menu-title div')[1].textContent.trim()
-    );
+    ).toEqual(title);
   });
 
   it('should render correct isopen props', () => {
-    expect(
-      wrapper
-        .find('.wrap')
-        .classes()
-        .indexOf('opened')
-    ).toBe(-1);
+    expect(wrapper.find('.wrap').classes().indexOf('opened')).toBe(-1);
     wrapper.setProps({ isopen: true });
-    expect(
-      wrapper
-        .find('.wrap')
-        .classes()
-        .indexOf('opened')
-    ).toBeGreaterThan(-1);
+    expect(wrapper.find('.wrap').classes().indexOf('opened')).toBeGreaterThan(
+      -1
+    );
   });
 
   it('should render correct rightText props', () => {

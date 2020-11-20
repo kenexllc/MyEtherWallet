@@ -7,20 +7,6 @@ function buildPath() {
   return swapApiEndpoints.base + swapApiEndpoints.bity;
 }
 
-function cleanPhoneData(phoneNumber) {
-  let cleanedNumber = phoneNumber
-    .replace(')', '')
-    .replace('.', '')
-    .replace(' ', '')
-    .replace('(', '')
-    .replace(',', '')
-    .replace('-', '');
-  if (cleanedNumber.slice(0, 1) !== '+') {
-    cleanedNumber = '+' + cleanedNumber;
-  }
-  return cleanedNumber;
-}
-
 const getRates = async () => {
   try {
     const results = await post(
@@ -28,8 +14,9 @@ const getRates = async () => {
       utils.buildPayload(bityMethods.getCryptoRates)
     );
     if (results.error) {
-      throw Error(results.error.message);
+      utils.checkErrorJson(results);
     }
+
     return results.result;
   } catch (e) {
     utils.handleOrThrow(e);
@@ -43,8 +30,9 @@ const getExitRates = async () => {
       utils.buildPayload(bityMethods.getFiatRates)
     );
     if (results.error) {
-      throw Error(results.error.message);
+      utils.checkErrorJson(results);
     }
+
     return results.result;
   } catch (e) {
     utils.handleOrThrow(e);
@@ -58,7 +46,7 @@ const getEstimate = async orderInfo => {
       utils.buildPayload(bityMethods.getEstimate, orderInfo)
     );
     if (results.error) {
-      throw Error(results.error.message);
+      utils.checkErrorJson(results);
     }
     return results.result;
   } catch (e) {
@@ -66,14 +54,65 @@ const getEstimate = async orderInfo => {
   }
 };
 
-const openOrder = async orderInfo => {
+const createOrder = async orderInfo => {
   try {
     const results = await post(
       buildPath(),
-      utils.buildPayload(bityMethods.createTransaction, orderInfo)
+      utils.buildPayload(bityMethods.createOrder, orderInfo)
     );
     if (results.error) {
-      throw Error(results.error.message);
+      utils.checkErrorJson(results);
+    }
+
+    return results.result;
+  } catch (e) {
+    utils.handleOrThrow(e);
+  }
+};
+
+const openOrder = async orderInfo => {
+  // v2
+  try {
+    const results = await post(
+      buildPath(),
+      utils.buildPayload(bityMethods.createTransactionV2, orderInfo)
+    );
+
+    if (results.error) {
+      utils.checkErrorJson(results);
+    }
+
+    return results.result;
+  } catch (e) {
+    utils.handleOrThrow(e);
+  }
+};
+
+const sendSignedMessage = async signedParts => {
+  // v2
+  try {
+    const results = await post(
+      buildPath(),
+      utils.buildPayload(bityMethods.sendSignedMessageV2, signedParts)
+    );
+    if (results.error) {
+      utils.checkErrorJson(results);
+    }
+
+    return results.result;
+  } catch (e) {
+    utils.handleOrThrow(e);
+  }
+};
+
+const orderDetails = async orderInfo => {
+  try {
+    const results = await post(
+      buildPath(),
+      utils.buildPayload(bityMethods.orderDetails, orderInfo)
+    );
+    if (results.error) {
+      utils.checkErrorJson(results);
     }
 
     return results.result;
@@ -86,30 +125,16 @@ const getStatus = async orderInfo => {
   try {
     const results = await post(
       buildPath(),
-      utils.buildPayload(bityMethods.status, [orderInfo])
+      utils.buildPayload(bityMethods.getStatusV2, orderInfo)
     );
-    if (results.error) {
-      throw Error(results.error.message);
-    }
-    return results.result;
-  } catch (e) {
-    utils.handleOrThrow(e);
-  }
-};
 
-const loginWithPhone = async exitData => {
-  try {
-    if (exitData.phoneNumber.length <= 10) {
-      throw Error('Invalid phone number. Check country code');
-    }
-    exitData.phoneNumber = cleanPhoneData(exitData.phoneNumber);
-    const results = await post(
-      buildPath(),
-      utils.buildPayload(bityMethods.logInWithPhoneNumber, exitData)
-    );
     if (results.error) {
-      throw Error(results.error.message);
+      if (Object.keys(results.error.message).length === 0) {
+        return;
+      }
+      utils.checkErrorJson(results);
     }
+
     return results.result;
   } catch (e) {
     utils.handleOrThrow(e);
@@ -123,7 +148,7 @@ const sendReceivedSmsCode = async exitData => {
       utils.buildPayload(bityMethods.sendReceivedSmsCode, exitData)
     );
     if (results.error) {
-      throw Error(results.error.message);
+      utils.checkErrorJson(results);
     }
     return results.result;
   } catch (e) {
@@ -138,7 +163,7 @@ const buildCyptoToFiatOrderData = async orderData => {
       utils.buildPayload(bityMethods.buildCyptoToFiatOrderData, orderData)
     );
     if (results.error) {
-      throw Error(results.error.message);
+      utils.checkErrorJson(results);
     }
     return results.result;
   } catch (e) {
@@ -153,7 +178,7 @@ const getCyptoToFiatOrderDetails = async detailsData => {
       utils.buildPayload(bityMethods.getExitOrderDetails, detailsData)
     );
     if (results.error) {
-      throw Error(results.error.message);
+      utils.checkErrorJson(results);
     }
     return results.result;
   } catch (e) {
@@ -161,17 +186,17 @@ const getCyptoToFiatOrderDetails = async detailsData => {
   }
 };
 
-const getStatusFiat = async (orderInfo, phoneToken) => {
+const getStatusFiat = async orderInfo => {
   try {
     const results = await post(
       buildPath(),
-      utils.buildPayload(bityMethods.statusFiat, {
+      utils.buildPayload(bityMethods.orderDetails, {
         orderId: orderInfo,
-        phoneToken: phoneToken.phoneToken
+        detailsUrl: orderInfo
       })
     );
     if (results.error) {
-      throw Error(results.error.message);
+      utils.checkErrorJson(results);
     }
     return results.result;
   } catch (e) {
@@ -181,11 +206,13 @@ const getStatusFiat = async (orderInfo, phoneToken) => {
 
 export {
   getEstimate,
+  createOrder,
+  orderDetails,
   getRates,
   getExitRates,
   openOrder,
   getStatus,
-  loginWithPhone,
+  sendSignedMessage,
   sendReceivedSmsCode,
   buildCyptoToFiatOrderData,
   getCyptoToFiatOrderDetails,

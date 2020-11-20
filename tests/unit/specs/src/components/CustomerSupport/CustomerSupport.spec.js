@@ -2,6 +2,7 @@ import CustomerSupport from '@/components/CustomerSupport/CustomerSupport.vue';
 import { shallowMount } from '@vue/test-utils';
 import { Tooling } from '@@/helpers';
 import sinon from 'sinon';
+import { Misc } from '@/helpers';
 
 const showModal = sinon.stub();
 
@@ -45,6 +46,11 @@ describe('CustomerSupport.vue', () => {
         'b-modal': BModalStub
       }
     });
+  });
+
+  afterEach(() => {
+    wrapper.destroy();
+    wrapper = null;
   });
 
   it('should render correct browser data', () => {
@@ -97,17 +103,11 @@ describe('CustomerSupport.vue', () => {
 
   it('should render correct noIcon props', () => {
     expect(
-      wrapper
-        .find('.support-content')
-        .classes()
-        .indexOf('with-icon')
+      wrapper.find('.support-content').classes().indexOf('with-icon')
     ).toBeGreaterThan(-1);
     wrapper.setProps({ noIcon: true });
     expect(
-      wrapper
-        .find('.support-content')
-        .classes()
-        .indexOf('without-icon')
+      wrapper.find('.support-content').classes().indexOf('without-icon')
     ).toBeGreaterThan(-1);
   });
 
@@ -117,21 +117,30 @@ describe('CustomerSupport.vue', () => {
     const os = wrapper.vm.$data.os;
     const device = wrapper.vm.$data.device;
     const description = wrapper.vm.$data.description;
+    const address = wrapper.vm.$data.address;
     const subject = `Issue on ${url}`;
-    const body = `
-        Browser: ${browser},
-        Os: ${os},
-        Device: ${device},
-        url: ${url}
-        Wallet Address: ${url}
-
-
-        ${description}
-      `;
+    const body =
+      'Browser: ' +
+      browser +
+      ', \n' +
+      'Os: ' +
+      os +
+      ', \n' +
+      'Device: ' +
+      device +
+      ',\n' +
+      'url: ' +
+      url +
+      ', \n' +
+      'Wallet Address: ' +
+      address +
+      ',' +
+      '\n\n' +
+      description;
     expect(wrapper.vm.issueLinkOut).toEqual(
       `mailto:support@myetherwallet.com?subject=${encodeURIComponent(
-        subject
-      )}&body=${encodeURIComponent(body)}`
+        Misc.stripTags(subject)
+      )}&body=${encodeURIComponent(Misc.stripTags(body))}`
     );
   });
 

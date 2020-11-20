@@ -14,7 +14,6 @@ import { Tooling } from '@@/helpers';
 import { RouterLinkStub } from '@@/helpers/setupTooling';
 import IpadModal from '@/components/IpadModal';
 
-//xdescribe
 describe('CreateWalletLayout.vue', () => {
   let localVue, i18n, wrapper, store, showModal, hideModal;
 
@@ -65,6 +64,12 @@ describe('CreateWalletLayout.vue', () => {
       }
     });
   }
+
+  afterEach(() => {
+    wrapper.destroy();
+    wrapper = null;
+  });
+
   it('should render correct byMnemonic data', () => {
     expect(wrapper.find('.nav-tab-user-input-box').isVisible()).toBe(true);
   });

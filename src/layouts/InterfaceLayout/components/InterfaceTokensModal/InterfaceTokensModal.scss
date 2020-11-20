@@ -5,17 +5,24 @@
   flex-direction: column;
   height: auto;
   justify-content: space-between;
-  min-height: 325px;
-  padding: 15px 30px;
+  //min-height: 325px;
+  padding: 30px 30px;
 
   input {
     margin: 5px 0;
     width: 100%;
   }
 
+  .custom-input-text-1::placeholder {
+    color: $dark-blue-12 !important;
+  }
+  .custom-input-text-1::-webkit-input-placeholder {
+    color: $dark-blue-12 !important;
+  }
+
   button {
-    margin-bottom: 15px;
-    min-width: 300px;
+    max-width: 300px;
+    width: 100%;
   }
 
   div {
@@ -29,4 +36,8 @@
 
 .error-message {
   color: $red-1;
+}
+
+.button-block {
+  margin-top: 30px;
 }

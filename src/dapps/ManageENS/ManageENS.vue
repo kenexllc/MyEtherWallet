@@ -1,47 +1,87 @@
 <template>
   <div class="manage-ens-container">
-    <back-button />
+    <div class="ens-header">
+      <back-button>
+        <template v-if="headerContext" v-slot:center>
+          <div class="button-container">
+            <b-button
+              :class="[
+                'action-btn',
+                $route.name === 'ensInitialState' ? 'active-btn' : ''
+              ]"
+              @click="
+                () => {
+                  navigateHeaderButtons('register');
+                }
+              "
+            >
+              {{ $t('ens.register-domain') }}
+            </b-button>
+            <b-button
+              :class="[
+                'action-btn',
+                $route.name === 'ensMultiManager' ? 'active-btn' : ''
+              ]"
+              @click="
+                () => {
+                  navigateHeaderButtons('manager');
+                }
+              "
+            >
+              {{ $t('ens.manage-domain') }}
+            </b-button>
+          </div>
+        </template>
+      </back-button>
+    </div>
     <router-view
       :contract-initiated="contractInitiated"
       :check-domain="checkDomain"
-      :bid-amount="bidAmount"
-      :bid-mask="bidMask"
       :secret-phrase="secretPhrase"
-      :start-auction-and-bid="startAuctionAndBid"
       :host-name="parsedHostName"
       :domain-name="parsedDomainName"
-      :auction-date-end="auctionDateEnd"
       :loading="loading"
       :name-hash="nameHash"
       :label-hash="labelHash"
       :owner="owner"
-      :resolver-address="resolverAddress"
-      :deed-owner="deedOwner"
-      :highest-bidder="highestBid"
       :raw="raw"
       :step="step"
-      :send-bid="sendBid"
-      :reveal-bid="revealBid"
       :domain-name-err="domainNameErr"
       :generate-key-phrase="generateKeyPhrase"
-      :finalize="finalize"
-      :update-resolver="updateResolver"
+      :set-multi-coin="setMultiCoin"
       :transfer-domain="transferDomain"
-      :tld="parsedTld === '' ? network.type.ens.registrarTLD : parsedTld"
+      :tld="parsedTld === '' ? registrarTLD : parsedTld"
       :network-name="network.type.name"
       :register-fifs-name="registerFifsName"
       :multi-tld="multiTld"
       :claim-func="claimFunc"
       :dns-owner="dnsOwner"
       :dns-claim="dnsClaim"
-      :transfer-func="transferFunc"
       :create-commitment="createCommitment"
       :register-with-duration="registerWithDuration"
       :minimum-age="minimumAge"
       :commitment-created="commitmentCreated"
+      :resolver-multi-coin-support="resolverMultiCoinSupport"
+      :resolver-txt-support="resolverTxtSupport"
+      :supported-coins="supportedCoins"
+      :txt-records="txtRecords"
+      :set-record="setRecord"
+      :usd="usd"
+      :is-controller="isController"
+      :set-controller="setController"
+      :has-deed="hasDeed"
+      :is-deed-owner="isDeedOwner"
+      :is-expired="isExpired"
+      :renew-name="renewName"
+      :release-deed="releaseDeed"
+      :navigate-to-renew="navigateToRenew"
+      :deed-value="deedValue"
+      :get-controller="getController"
+      :content-hash="contentHash"
+      :upload-file="uploadFile"
+      :save-content-hash="saveContentHash"
+      :ipfs-processing="ipfsProcessing"
       @updateSecretPhrase="updateSecretPhrase"
-      @updateBidAmount="updateBidAmount"
-      @updateBidMask="updateBidMask"
       @domainNameChange="updateDomainName"
       @updateStep="updateStep"
       @updateDuration="updateDuration"
@@ -51,20 +91,23 @@
 
 <script>
 import BackButton from '@/layouts/InterfaceLayout/components/BackButton';
-import RegistrarAbi from './ABI/registrarAbi';
 import PermanentRegistrarControllerAbi from './ABI/permanentRegistrarController';
 import baseRegistrarAbi from './ABI/baseRegistrarAbi';
-import DeedContractAbi from './ABI/deedContractAbi';
 import RegistryAbi from './ABI/registryAbi.js';
 import FifsRegistrarAbi from './ABI/fifsRegistrarAbi.js';
 import ResolverAbi from './ABI/resolverAbi.js';
+import OldEnsAbi from './ABI/oldEnsAbi.js';
+import OldDeedAbi from './ABI/oldDeedAbi.js';
 import * as unit from 'ethjs-unit';
 import * as nameHashPckg from 'eth-ens-namehash';
 import normalise from '@/helpers/normalise';
-import { mapGetters } from 'vuex';
+import { mapState } from 'vuex';
 import { Toast } from '@/helpers';
 import DNSRegistrar from '@ensdomains/dnsregistrar';
 import BigNumber from 'bignumber.js';
+import supportedCoins from './supportedCoins';
+import supportedTxt from './supportedTxt';
+import contentHash from 'content-hash';
 
 const bip39 = require('bip39');
 
@@ -73,8 +116,10 @@ const permanentRegistrar = {
   INTERFACE_LEGACY_REGISTRAR: '0x7ba18ba1'
 };
 
+const OLD_ENS_ADDRESS = '0x6090a6e47849629b7245dfa1ca21d94cd15878ef';
+const MULTICOIN_SUPPORT_INTERFACE = '0xf1cb7e06';
+const TEXT_RECORD_SUPPORT_INTERFACE = '0x59d1d43c';
 const REGISTRAR_TYPES = {
-  AUCTION: 'auction',
   FIFS: 'fifs',
   PERMANENT: 'permanent'
 };
@@ -86,18 +131,12 @@ export default {
     return {
       domainName: '',
       loading: false,
-      bidAmount: 0.01,
-      bidMask: 0.02,
       nameHash: '',
       labelHash: '',
       owner: '',
-      resolverAddress: '',
-      deedOwner: '',
       secretPhrase: '',
       registrarAddress: '',
-      auctionDateEnd: 0,
       raw: {},
-      highestBid: '',
       contractInitiated: false,
       step: 1,
       domainNameErr: false,
@@ -105,22 +144,43 @@ export default {
       dnsRegistrar: {},
       dnsClaim: {},
       dnsOwner: '',
-      legacyRegistrar: {},
       minimumAge: 0,
       duration: 1,
-      commitmentCreated: false
+      commitmentCreated: false,
+      publicResolverAddress: '',
+      resolverMultiCoinSupport: false,
+      supportedCoins,
+      txtRecords: {},
+      supportedTxt,
+      recordContract: {},
+      resolverTxtSupport: false,
+      usd: 0,
+      isController: false,
+      hasDeed: false,
+      isDeedOwner: false,
+      isExpired: false,
+      deedValue: '0',
+      controllerAddress: '',
+      contractControllerAddress: '',
+      contentHash: '',
+      ipfsProcessing: false,
+      registrarControllerContract: {}
     };
   },
   computed: {
-    ...mapGetters({
-      web3: 'web3',
-      network: 'network',
-      account: 'account',
-      gasPrice: 'gasPrice',
-      ens: 'ens'
-    }),
+    ...mapState('main', ['web3', 'network', 'account', 'gasPrice', 'ens']),
     registrarTLD() {
+      if (!this.network.type || !this.network.type.ens) {
+        return '';
+      }
       return this.network.type.ens.registrarTLD;
+    },
+    headerContext() {
+      return (
+        this.$route.fullPath === '/interface/dapps/manage-ens' ||
+        this.$route.fullPath === '/interface/dapps/manage-ens/' ||
+        this.$route.fullPath === '/interface/dapps/manage-ens/manager'
+      );
     },
     registrarType() {
       return this.network.type.ens.registrarType;
@@ -132,7 +192,7 @@ export default {
       );
     },
     parsedTld() {
-      if (this.parsedHostName.length) {
+      if (this.parsedHostName && this.parsedHostName.length) {
         const hasTld = this.domainName.lastIndexOf('.');
         return hasTld > -1
           ? this.domainName.substr(hasTld + 1, this.domainName.length)
@@ -141,15 +201,21 @@ export default {
       return '';
     },
     parsedHostName() {
-      return this.domainName.substr(
-        0,
-        this.domainName.lastIndexOf('.') > -1
-          ? this.domainName.lastIndexOf('.')
-          : this.domainName.length
-      );
+      if (this.domainName && this.domainName.length) {
+        return this.domainName.substr(
+          0,
+          this.domainName.lastIndexOf('.') > -1
+            ? this.domainName.lastIndexOf('.')
+            : this.domainName.length
+        );
+      }
+      return '';
     },
     parsedDomainName() {
       return this.parsedHostName + '.' + this.parsedTld;
+    },
+    isSubDomain() {
+      return this.domainName.split('.').length - 1 > 1;
     }
   },
   watch: {
@@ -163,24 +229,26 @@ export default {
     this.$nextTick(() => {
       this.setup();
     });
+
+    this.fetchUsd();
   },
   methods: {
+    async fetchUsd() {
+      const url = 'https://cryptorates.mewapi.io/ticker?filter=ETH';
+      const fetchValues = await fetch(url);
+      const values = await fetchValues.json();
+      this.usd = values.data.ETH.quotes.USD.price;
+    },
     async setup() {
       this.isPermanentLive = true;
       this.domainName = '';
       this.loading = false;
-      this.bidAmount = 0.01;
-      this.bidMask = 0.02;
       this.nameHash = '';
       this.labelHash = '';
       this.owner = '';
-      this.resolverAddress = '';
-      this.deedOwner = '';
       this.secretPhrase = '';
       this.registrarAddress = '';
-      this.auctionDateEnd = 0;
       this.raw = {};
-      this.highestBid = '';
       this.contractInitiated = false;
       this.step = 1;
       this.contractInitiated = false;
@@ -188,13 +256,135 @@ export default {
       this.domainNameErr = false;
       this.dnsRegistrar = {};
       this.dnsClaim = {};
-      this.legacyRegistrar = {};
       this.minimumAge = 0;
       this.duration = 1;
       this.commitmentCreated = false;
+      this.publicResolverAddress = '';
+      this.resolverMultiCoinSupport = false;
+      this.resolverTxtSupport = false;
+      this.supportedCoins = supportedCoins;
+      this.txtRecords = {};
+      this.recordContract = {};
+      this.hasDeed = false;
+      this.isDeedOwner = false;
+      this.isExpired = false;
+      this.deedValue = '0';
+      this.controllerAddress = '';
+      this.contractControllerAddress = '';
+      this.contentHash = '';
+      this.ipfsProcessing = false;
 
       if (this.ens) {
         this.setRegistrar();
+      }
+      for (const type in this.supportedCoins)
+        this.supportedCoins[type].value = '';
+    },
+    async checkIfController() {
+      // checks the controller for the name
+      const owner = await this.ensRegistryContract.methods
+        .owner(this.nameHash)
+        .call();
+      this.controllerAddress = owner;
+      this.isController =
+        this.web3.utils.toChecksumAddress(owner) ===
+        this.web3.utils.toChecksumAddress(this.account.address);
+    },
+    async getController(name) {
+      const nameHash = nameHashPckg.hash(`${name}.eth`);
+      const owner = await this.ensRegistryContract.methods
+        .owner(nameHash)
+        .call();
+      return owner;
+    },
+    async checkDeed() {
+      const contract = new this.web3.eth.Contract(OldEnsAbi, OLD_ENS_ADDRESS);
+      const entries = await contract.methods.entries(this.labelHash).call();
+      if (entries[1] !== '0x0000000000000000000000000000000000000000') {
+        this.hasDeed = true;
+        const deedContract = new this.web3.eth.Contract(OldDeedAbi, entries[1]);
+        const owner = await deedContract.methods.owner().call();
+        this.isDeedOwner =
+          this.web3.utils.toChecksumAddress(owner) ===
+          this.web3.utils.toChecksumAddress(this.account.address);
+        this.deedValue = await deedContract.methods.value().call();
+      } else {
+        this.hasDeed = false;
+        this.isDeedOwner = false;
+      }
+    },
+    navigateHeaderButtons(to) {
+      this.$router.push({
+        name: to === 'register' ? 'ensInitialState' : 'ensMultiManager'
+      });
+    },
+    navigateToRenew() {
+      this.$router.push({ name: 'ensRenewName' });
+    },
+    async renewName(name) {
+      const domainName = name ? name : this.parsedDomainName;
+      const hostName = name
+        ? name.replace(`.${this.network.type.ens.registrarTLD}`, '')
+        : this.parsedHostName;
+
+      const SECONDS_YEAR = 60 * 60 * 24 * 365.25;
+      const duration = Math.ceil(SECONDS_YEAR * this.duration);
+      try {
+        const rentPrice = await this.registrarControllerContract.methods
+          .rentPrice(domainName, duration)
+          .call();
+        const checkBalance = new BigNumber(rentPrice).gte(this.account.balance);
+        if (checkBalance) {
+          Toast.responseHandler(
+            this.$t('ens.error.balance-too-low'),
+            Toast.WARN
+          );
+        } else {
+          const data = this.registrarControllerContract.methods
+            .renew(hostName, duration)
+            .encodeABI();
+          const withFivePercent = BigNumber(rentPrice)
+            .times(1.05)
+            .integerValue()
+            .toFixed();
+          const txObj = {
+            to: this.contractControllerAddress,
+            from: this.account.address,
+            data: data,
+            value: withFivePercent
+          };
+          this.web3.eth
+            .sendTransaction(txObj)
+            .then(() => {
+              Toast.responseHandler(
+                this.$t('ens.toast.success'),
+                Toast.SUCCESS
+              );
+            })
+            .catch(err => {
+              Toast.responseHandler(err, false);
+            });
+        }
+      } catch (e) {
+        this.loading = false;
+        const toastText = this.$t('ens.error.something-went-wrong');
+        Toast.responseHandler(toastText, Toast.ERROR);
+      }
+    },
+    async releaseDeed() {
+      if (this.hasDeed && this.isDeedOwner) {
+        const contract = new this.web3.eth.Contract(OldEnsAbi, OLD_ENS_ADDRESS);
+        const obj = {
+          from: this.account.address,
+          to: OLD_ENS_ADDRESS,
+          data: contract.methods.releaseDeed(this.labelHash).encodeABI(),
+          value: 0
+        };
+        this.web3.eth.sendTransaction(obj).catch(err => {
+          Toast.responseHandler(err, Toast.ERROR);
+        });
+      } else {
+        Toast.responseHandler(this.$t('ens.error.not-the-owner'), Toast.ERROR);
       }
     },
     async setRegistrar() {
@@ -205,24 +395,19 @@ export default {
         RegistryAbi,
         this.network.type.ens.registry
       );
-      if (this.registrarType === REGISTRAR_TYPES.AUCTION) {
-        this.registrarContract = new web3.eth.Contract(
-          RegistrarAbi,
-          this.registrarAddress
-        );
-      } else if (this.registrarType === REGISTRAR_TYPES.FIFS) {
+      if (this.registrarType === REGISTRAR_TYPES.FIFS) {
         this.registrarContract = new web3.eth.Contract(
           FifsRegistrarAbi,
           this.registrarAddress
         );
       } else if (this.registrarType === REGISTRAR_TYPES.PERMANENT) {
         try {
-          const controllerAddress = await this.ens
+          this.contractControllerAddress = await this.ens
             .resolver(this.registrarTLD, ResolverAbi)
             .interfaceImplementer(permanentRegistrar.INTERFACE_CONTROLLER);
           this.registrarControllerContract = new this.web3.eth.Contract(
             PermanentRegistrarControllerAbi,
-            controllerAddress
+            this.contractControllerAddress
           );
           this.registrarContract = new this.web3.eth.Contract(
             baseRegistrarAbi,
@@ -230,99 +415,156 @@ export default {
           );
         } catch (e) {
           this.isPermanentLive = false;
-          Toast.responseHandler(
-            'ENS Permanent registrar is not available yet, please try again later',
-            Toast.ERROR
-          );
+          const toastText = this.$t('ens.error.permanent-not-available');
+          Toast.responseHandler(toastText, Toast.ERROR);
         }
       }
     },
-    async transferDomain(toAddress) {
-      let to, data;
-      if (this.registrarType === REGISTRAR_TYPES.AUCTION) {
-        data = await this.registrarContract.methods
-          .transfer(this.labelHash, toAddress)
-          .encodeABI();
-        to = this.registrarAddress;
-      } else if (this.registrarType === REGISTRAR_TYPES.FIFS) {
-        data = await this.ensRegistryContract.methods
-          .setOwner(this.nameHash, toAddress)
-          .encodeABI();
-        to = this.network.type.ens.registry;
-      } else if (this.registrarType === REGISTRAR_TYPES.PERMANENT) {
-        data = await this.registrarContract.methods
-          .safeTransferFrom(this.account.address, toAddress, this.labelHash)
-          .encodeABI();
-        to = this.registrarAddress;
-      }
-      const raw = {
+    setController(toAddress = '', onlyGenerate = false) {
+      const actualToAddress =
+        toAddress === '' ? this.account.address : toAddress;
+      const setControllerTx = {
         from: this.account.address,
-        to,
-        data,
+        to: this.registrarAddress,
+        data: this.registrarContract.methods
+          .reclaim(this.labelHash, actualToAddress)
+          .encodeABI(),
         value: 0
       };
-      this.web3.eth.sendTransaction(raw).catch(err => {
-        Toast.responseHandler(err, false);
+
+      if (onlyGenerate) {
+        return setControllerTx;
+      }
+      this.web3.eth.sendTransaction(setControllerTx).catch(err => {
+        Toast.responseHandler(err, Toast.ERROR);
       });
     },
-    async updateResolver(newResolverAddr) {
+    transferDomain(toAddress) {
+      if (this.registrarType === REGISTRAR_TYPES.FIFS) {
+        this.web3.eth
+          .sendTransaction({
+            from: this.account.address,
+            to: this.network.type.ens.registry,
+            data: this.ensRegistryContract.methods
+              .setOwner(this.nameHash, toAddress)
+              .encodeABI(),
+            value: 0
+          })
+          .catch(err => {
+            Toast.responseHandler(err, false);
+          });
+      } else if (this.registrarType === REGISTRAR_TYPES.PERMANENT) {
+        const registryTransferTx = this.setController(toAddress, true);
+        const safeTransferTx = {
+          from: this.account.address,
+          to: this.registrarAddress,
+          data: this.registrarContract.methods
+            .transferFrom(this.account.address, toAddress, this.labelHash)
+            .encodeABI(),
+          value: 0
+        };
+        this.web3.mew.sendBatchTransactions(
+          [registryTransferTx, safeTransferTx].filter(Boolean)
+        );
+      }
+    },
+    getDecodedAddress(_coinItem) {
+      let decodedAddress = '0x';
+      if (_coinItem.value !== '' && _coinItem.value) {
+        decodedAddress = _coinItem.decode(_coinItem.value);
+      }
+      return decodedAddress;
+    },
+    async resolverMigrateAndSet() {
       const web3 = this.web3;
       const address = this.account.address;
-      // Public resolver address
-      const resolver = await this.ens.resolver('resolver.eth');
-      const publicResolverAddress = await resolver.addr();
+      const publicResolverAddress = this.publicResolverAddress;
       const currentResolverAddress = await this.ensRegistryContract.methods
         .resolver(this.nameHash)
         .call();
+      if (
+        publicResolverAddress.toLowerCase() ===
+        currentResolverAddress.toLowerCase()
+      )
+        return false;
       const publicResolverContract = new web3.eth.Contract(
         ResolverAbi,
         publicResolverAddress
       );
-      const setAddrTx = {
+      const setResolverTx = {
         from: address,
-        to: publicResolverAddress,
-        data: await publicResolverContract.methods
-          .setAddr(this.nameHash, newResolverAddr)
+        to: this.network.type.ens.registry,
+        data: this.ensRegistryContract.methods
+          .setResolver(this.nameHash, publicResolverAddress)
           .encodeABI(),
         value: 0,
         gasPrice: new BigNumber(unit.toWei(this.gasPrice, 'gwei')).toFixed()
       };
-      if (
-        currentResolverAddress.toLowerCase() ===
-        publicResolverAddress.toLowerCase()
-      ) {
-        web3.eth.sendTransaction(setAddrTx).catch(err => {
-          Toast.responseHandler(err, false);
-        });
-      } else {
-        const setResolverTx = {
-          from: address,
-          to: this.network.type.ens.registry,
-          data: await this.ensRegistryContract.methods
-            .setResolver(this.nameHash, publicResolverAddress)
-            .encodeABI(),
-          value: 0,
-          gasPrice: new BigNumber(unit.toWei(this.gasPrice, 'gwei')).toFixed()
-        };
-        web3.mew.sendBatchTransactions([setResolverTx, setAddrTx]);
+      const multiCallRecords = [];
+      for (const coin in this.supportedCoins) {
+        if (this.supportedCoins[coin].value) {
+          multiCallRecords.push(
+            publicResolverContract.methods
+              .setAddr(
+                this.nameHash,
+                this.supportedCoins[coin].id,
+                this.getDecodedAddress(this.supportedCoins[coin])
+              )
+              .encodeABI()
+          );
+        }
       }
-    },
-    async finalize() {
-      const address = this.account.address;
-      const web3 = this.web3;
-      const data = await this.registrarContract.methods
-        .finalizeAuction(this.labelHash)
-        .encodeABI();
-
-      const raw = {
+      for (const txt in this.txtRecords) {
+        if (this.txtRecords[txt]) {
+          multiCallRecords.push(
+            this.recordContract.methods
+              .setText(this.nameHash, txt, this.txtRecords[txt])
+              .encodeABI()
+          );
+        }
+      }
+      const migrateRecordsTx = {
         from: address,
+        to: publicResolverAddress,
+        data: publicResolverContract.methods
+          .multicall(multiCallRecords)
+          .encodeABI(),
         value: 0,
-        to: this.registrarAddress,
-        data: data
+        gasPrice: new BigNumber(unit.toWei(this.gasPrice, 'gwei')).toFixed()
       };
-
-      web3.eth.sendTransaction(raw).catch(err => {
-        Toast.responseHandler(err, false);
+      web3.mew.sendBatchTransactions(
+        [migrateRecordsTx, setResolverTx].filter(Boolean)
+      );
+      return true;
+    },
+    async setMultiCoin(coin) {
+      coin.forEach(_coin => {
+        this.supportedCoins[_coin.symbol].value = _coin.value;
+      });
+      const isMigrate = await this.resolverMigrateAndSet();
+      if (isMigrate) return;
+      const web3 = this.web3;
+      const address = this.account.address;
+      const publicResolverAddress = this.publicResolverAddress;
+      const publicResolverContract = new web3.eth.Contract(
+        ResolverAbi,
+        publicResolverAddress
+      );
+      const arr = coin.map(item => {
+        return publicResolverContract.methods
+          .setAddr(this.nameHash, item.id, this.getDecodedAddress(item))
+          .encodeABI();
+      });
+      const setAddrTx = {
+        from: address,
+        to: publicResolverAddress,
+        data: publicResolverContract.methods.multicall(arr).encodeABI(),
+        value: 0,
+        gasPrice: new BigNumber(unit.toWei(this.gasPrice, 'gwei')).toFixed(),
+        gas: 100000
+      };
+      web3.eth.sendTransaction(setAddrTx).catch(err => {
+        Toast.responseHandler(err, Toast.ERROR);
       });
     },
     async registerFifsName() {
@@ -331,89 +573,96 @@ export default {
       const data = await this.registrarContract.methods
         .register(this.labelHash, address)
         .encodeABI();
-      const raw = {
+      const registerTx = {
         from: address,
         value: 0,
         to: this.registrarAddress,
         data: data
       };
-      web3.eth.sendTransaction(raw).catch(err => {
-        Toast.responseHandler(err, false);
-      });
+      const setResolverTx = {
+        from: address,
+        to: this.network.type.ens.registry,
+        data: this.ensRegistryContract.methods
+          .setResolver(this.nameHash, this.publicResolverAddress)
+          .encodeABI(),
+        value: 0,
+        gasPrice: new BigNumber(unit.toWei(this.gasPrice, 'gwei')).toFixed()
+      };
+      web3.mew
+        .sendBatchTransactions([registerTx, setResolverTx].filter(Boolean))
+        .catch(err => {
+          Toast.responseHandler(err, false);
+        });
     },
     async getRegistrarAddress(tld) {
       const registrarAddress = await this.ens.owner(tld);
       return registrarAddress;
     },
-    async checkDomain() {
+    async checkDomain(domainName, bool) {
+      if (domainName !== '' && domainName && typeof domainName === 'string')
+        this.domainName = domainName;
       const supportedTlds = this.network.type.ens.supportedTld;
       const isSupported = supportedTlds.find(item => {
         return item === this.parsedTld;
       });
-
       this.loading = true;
       const web3 = this.web3;
-
       this.labelHash = web3.utils.sha3(this.parsedHostName);
+      this.nameHash = nameHashPckg.hash(this.parsedDomainName);
+      const resolver = await this.ens.resolver('resolver.eth');
+      this.publicResolverAddress = await resolver.addr();
+
       if (this.parsedTld !== '' && isSupported === undefined) {
-        Toast.responseHandler(
-          `Domain TLD ${this.parsedTld} is not supported in this node!`,
-          Toast.ERROR
-        );
+        const toastText = this.$t('ens.error.domain-tld-not-supported', {
+          parsedTld: this.parsedTld
+        });
+        Toast.responseHandler(toastText, Toast.ERROR);
         this.loading = false;
       } else if (this.parsedTld === this.registrarTLD) {
         try {
-          if (this.registrarType === REGISTRAR_TYPES.AUCTION) {
-            const domainStatus = await this.registrarContract.methods
-              .entries(this.labelHash)
-              .call();
-            this.processResult(domainStatus);
-          } else if (this.registrarType === REGISTRAR_TYPES.FIFS) {
+          if (
+            this.registrarType === REGISTRAR_TYPES.FIFS &&
+            !this.isSubDomain
+          ) {
             const expiryTime = await this.registrarContract.methods
               .expiryTimes(this.labelHash)
               .call();
             const isAvailable = expiryTime * 1000 < new Date().getTime();
             if (isAvailable) {
-              this.$router.push({ path: 'manage-ens/fifs' });
+              this.$router.push({ name: 'fifsReserve' });
               this.loading = false;
             } else {
               this.getMoreInfo();
               this.loading = false;
             }
-          } else if (this.registrarType === REGISTRAR_TYPES.PERMANENT) {
+          } else if (
+            this.registrarType === REGISTRAR_TYPES.PERMANENT &&
+            !this.isSubDomain
+          ) {
             if (!this.isPermanentLive) {
-              Toast.responseHandler(
-                'ENS Permanent registrar is not available yet, please try again later',
-                Toast.ERROR
-              );
+              const toastText = this.$t('ens.error.permanent-not-available');
+              Toast.responseHandler(toastText, Toast.ERROR);
               return;
             }
-            const oldRegistrarAddress = await this.ens
-              .resolver(this.registrarTLD, ResolverAbi)
-              .interfaceImplementer(
-                permanentRegistrar.INTERFACE_LEGACY_REGISTRAR
-              );
-            this.legacyRegistrar = new this.web3.eth.Contract(
-              RegistrarAbi,
-              oldRegistrarAddress
-            );
-            const legacyState = await this.legacyRegistrar.methods
-              .state(this.labelHash)
+            const isAvailable = await this.registrarControllerContract.methods
+              .available(this.parsedHostName)
               .call();
-            if (legacyState === '2') {
-              this.loading = false;
-              this.owner = await this.ens.owner(this.parsedDomainName);
-              this.$router.push({ path: 'manage-ens/transfer-registrar' });
+            if (!isAvailable) {
+              this.getMoreInfo(bool);
             } else {
-              const isAvailable = await this.registrarControllerContract.methods
-                .available(this.parsedHostName)
-                .call();
-              if (!isAvailable) this.getMoreInfo();
-              else {
-                this.generateKeyPhrase();
-                this.$router.push({ path: 'manage-ens/create-commitment' });
-                this.loading = false;
-              }
+              this.generateKeyPhrase();
+              this.$router.push({ name: 'ensCreateCommitment' });
+              this.loading = false;
+            }
+          } else if (this.isSubDomain) {
+            const owner = await this.ens.owner(this.parsedDomainName);
+            if (owner === '0x0000000000000000000000000000000000000000') {
+              Toast.responseHandler(
+                this.$t('ens.warning.subdomain-is-not-owned'),
+                Toast.WARN
+              );
+            } else {
+              this.getMoreInfo();
             }
           }
         } catch (e) {
@@ -429,7 +678,13 @@ export default {
           );
           this.dnsClaim = await this.dnsRegistrar.claim(this.parsedDomainName);
           const _owner = await this.ens.owner(this.parsedDomainName);
-          if (
+          const isInNewRegistry = await this.ensRegistryContract.methods
+            .recordExists(nameHashPckg.hash(this.parsedDomainName))
+            .call();
+          if (this.dnsClaim.result.found && !isInNewRegistry) {
+            this.dnsOwner = this.dnsClaim.getOwner();
+            this.processDNSresult('dnsClaimable'); // reclaim in new registry
+          } else if (
             this.dnsClaim.result.found &&
             this.dnsClaim.getOwner().toLowerCase() === _owner.toLowerCase()
           ) {
@@ -445,10 +700,8 @@ export default {
           }
         } catch (e) {
           this.loading = false;
-          Toast.responseHandler(
-            'Something went wrong! Please try again.',
-            Toast.ERROR
-          );
+          const toastText = this.$t('ens.error.something-went-wrong');
+          Toast.responseHandler(toastText, Toast.ERROR);
         }
       }
     },
@@ -456,20 +709,23 @@ export default {
       const utils = this.web3.utils;
       try {
         const commitment = await this.registrarControllerContract.methods
-          .makeCommitment(
+          .makeCommitmentWithConfig(
             this.parsedHostName,
             this.account.address,
-            utils.sha3(this.secretPhrase)
+            utils.sha3(this.secretPhrase),
+            this.publicResolverAddress,
+            this.account.address
           )
           .call();
         this.minimumAge = await this.registrarControllerContract.methods
           .minCommitmentAge()
           .call();
+        this.minimumAge = `${parseInt(this.minimumAge) + 30}`;
         await this.registrarControllerContract.methods
           .commit(commitment)
           .send({ from: this.account.address })
           .once('transactionHash', () => {
-            this.$router.push({ path: 'permanent-registration' });
+            this.$router.push({ name: 'ensPermRegistration' });
           })
           .on('receipt', () => {
             this.loading = false;
@@ -477,10 +733,7 @@ export default {
           });
       } catch (e) {
         this.loading = false;
-        Toast.responseHandler(
-          'Something went wrong! Please try again.',
-          Toast.ERROR
-        );
+        Toast.responseHandler(e, Toast.ERROR);
       }
     },
     async registerWithDuration() {
@@ -489,48 +742,36 @@ export default {
       const SECONDS_YEAR = 60 * 60 * 24 * 365.25;
       const duration = Math.ceil(SECONDS_YEAR * this.duration);
       try {
+        const toastRecieptText = this.$t('ens.toast.success-register');
         const rentPrice = await this.registrarControllerContract.methods
           .rentPrice(this.parsedHostName, duration)
           .call();
+        const withFivePercent = BigNumber(rentPrice)
+          .times(1.05)
+          .integerValue()
+          .toFixed();
+
         this.registrarControllerContract.methods
-          .register(
+          .registerWithConfig(
             this.parsedHostName,
             this.account.address,
             duration,
-            utils.sha3(this.secretPhrase)
+            utils.sha3(this.secretPhrase),
+            this.publicResolverAddress,
+            this.account.address
           )
-          .send({ from: this.account.address, value: rentPrice })
+          .send({ from: this.account.address, value: withFivePercent })
           .once('transactionHash', () => {
-            this.$router.push({ path: 'registration-in-progress' });
+            this.$router.push({ name: 'ensPermRegistrationOngoing' });
           })
           .once('receipt', () => {
             this.getMoreInfo();
-            Toast.responseHandler('Successfully Registered!', Toast.SUCCESS);
+            Toast.responseHandler(toastRecieptText, Toast.SUCCESS);
           });
       } catch (e) {
         this.loading = false;
-        Toast.responseHandler(
-          'Something went wrong! Please try again.',
-          Toast.ERROR
-        );
-      }
-    },
-    transferFunc() {
-      this.loading = true;
-      try {
-        this.legacyRegistrar.methods
-          .transferRegistrars(this.labelHash)
-          .send({ from: this.account.address })
-          .once('receipt', () => {
-            this.getMoreInfo();
-            Toast.responseHandler('Successfully Transferred!', Toast.SUCCESS);
-          });
-      } catch (e) {
-        this.loading = false;
-        Toast.responseHandler(
-          'Something went wrong! Please try again.',
-          Toast.ERROR
-        );
+        const toastText = this.$t('ens.error.something-went-wrong');
+        Toast.responseHandler(toastText, Toast.ERROR);
       }
     },
     async claimFunc() {
@@ -542,10 +783,8 @@ export default {
         this.loading = false;
       } catch (e) {
         this.loading = false;
-        Toast.responseHandler(
-          'Something went wrong! Please try again.',
-          Toast.ERROR
-        );
+        const toastText = this.$t('ens.error.something-went-wrong');
+        Toast.responseHandler(toastText, Toast.ERROR);
       }
     },
     updateStep(val) {
@@ -554,58 +793,18 @@ export default {
     processDNSresult(type) {
       this.loading = false;
       switch (type) {
-        case 'dnsOwned':
-          this.$router.push({ path: 'manage-ens/dns-owned' });
-          break;
         case 'dnsClaimable':
-          this.$router.push({ path: 'manage-ens/claim' });
+          this.$router.push({ name: 'dnsClaim' });
           break;
         case 'dnsNotSetup':
-          this.$router.push({ path: 'manage-ens/dns-error' });
+          this.$router.push({ name: 'dnsError' });
           break;
         case 'dnsMissingTXT':
-          this.$router.push({ path: 'manage-ens/no-txt-setup' });
-          break;
-      }
-    },
-    processPermanentRegistrar() {},
-    processResult(res) {
-      this.auctionDateEnd = res[2] * 1000;
-      switch (res[0]) {
-        case '0':
-          this.generateKeyPhrase();
-          this.$router.push({
-            path: 'manage-ens/auction'
-          });
-          this.loading = false;
-          break;
-        case '1':
-          this.generateKeyPhrase();
-          this.loading = false;
-          this.$router.push({ path: 'manage-ens/bid' });
-          break;
-        case '2':
-          this.getMoreInfo(res[1]);
-          break;
-        case '3':
-          this.loading = false;
-          this.$router.push({
-            path: 'manage-ens/forbidden'
-          });
-          break;
-        case '4':
-          this.loading = false;
-          this.highestBid = unit.fromWei(res[4], 'ether').toString();
-          this.$router.push({ path: 'manage-ens/reveal' });
+          this.$router.push({ name: 'dnsNoTxt' });
           break;
       }
     },
     updateDomainName(value) {
-      if (this.parsedTld === this.registrarTLD) {
-        this.domainNameErr = value.substr(0, 2) === '0x' || value.length < 7;
-      } else {
-        this.domainNameErr = false;
-      }
       try {
         this.domainName = normalise(value);
       } catch (e) {
@@ -613,115 +812,299 @@ export default {
         this.domainNameErr = true;
         return;
       }
-    },
-    async getMoreInfo(deedOwner) {
-      let highestBidder = '0x';
-      if (
-        this.registrarType === REGISTRAR_TYPES.AUCTION &&
-        this.parsedTld === this.registrarTLD
-      ) {
-        const deedContract = new this.web3.eth.Contract(
-          DeedContractAbi,
-          deedOwner
-        );
-        highestBidder = await deedContract.methods.owner().call();
+      if (this.parsedTld === this.registrarTLD) {
+        this.domainNameErr =
+          value.substr(0, 2) === '0x' || this.parsedHostName.length < 3;
+      } else {
+        this.domainNameErr = false;
       }
-      let owner;
-      let resolverAddress;
+    },
+    async uploadFile(file) {
+      const formData = new FormData();
+
+      this.ipfsProcessing = true;
       try {
-        owner = await this.ens.owner(this.parsedDomainName);
+        const content = await fetch('https://swap.mewapi.io/ipfs', {
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          method: 'POST',
+          body: JSON.stringify({
+            method: 'getUploadUrl'
+          })
+        }).then(response => {
+          return response.json();
+        });
+        for (const key in content.body.fields) {
+          formData.append(key, content.body.fields[key]);
+        }
+        formData.append('file', file);
+        fetch(content.body.signedUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Length': file.size
+          },
+          body: formData
+        }).then(response => {
+          if (!response.ok) {
+            this.ipfsProcessing = false;
+            Toast.responseHandler(
+              this.$t('ens.error.file-upload-error'),
+              Toast.ERROR
+            );
+            return;
+          }
+          this.getHashFromFile(content.body.hashResponse);
+        });
+      } catch (e) {
+        this.ipfsProcessing = false;
+        Toast.responseHandler(e, Toast.ERROR);
+      }
+    },
+    async getHashFromFile(hash) {
+      try {
+        const ipfsHash = await fetch('https://swap.mewapi.io/ipfs', {
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          method: 'POST',
+          body: JSON.stringify({
+            method: 'uploadComplete',
+            hash: hash
+          })
+        })
+          .then(response => {
+            return response.json();
+          })
+          .catch(e => {
+            this.ipfsProcessing = false;
+            Toast.responseHandler(e, Toast.ERROR);
+          });
+        if (ipfsHash.error) {
+          Toast.responseHandler(
+            this.$t('ens.error.error-getting-ipfs-hash'),
+            Toast.ERROR
+          );
+        } else {
+          this.saveContentHash(ipfsHash);
+        }
+      } catch (e) {
+        this.ipfsProcessing = false;
+        Toast.responseHandler(e, Toast.ERROR);
+      }
+    },
+    async saveContentHash(ipfsHash) {
+      const ipfsToHash = `0x${contentHash.fromIpfs(ipfsHash)}`;
+      const currentResolverAddress = await this.ensRegistryContract.methods
+        .resolver(this.nameHash)
+        .call();
+      const resolverContract = new this.web3.eth.Contract(
+        ResolverAbi,
+        currentResolverAddress
+      );
+
+      try {
+        const txObj = {
+          from: this.account.address,
+          to: currentResolverAddress,
+          data: resolverContract.methods
+            .setContenthash(this.nameHash, ipfsToHash)
+            .encodeABI(),
+          value: 0
+        };
+
+        this.web3.eth.sendTransaction(txObj).then(() => {
+          this.contentHash = ipfsHash;
+          this.ipfsProcessing = false;
+        });
+      } catch (e) {
+        this.ipfsProcessing = false;
+        Toast.responseHandler(e, Toast.ERROR);
+      }
+    },
+    async getMoreInfo(renew) {
+      let owner;
+      try {
+        if (
+          this.registrarType === REGISTRAR_TYPES.PERMANENT &&
+          this.parsedTld === this.registrarTLD &&
+          !this.isSubDomain
+        ) {
+          const expiryTime = await this.registrarContract.methods
+            .nameExpires(this.labelHash)
+            .call();
+          this.isExpired = expiryTime * 1000 < new Date().getTime();
+          try {
+            owner = await this.registrarContract.methods
+              .ownerOf(this.labelHash)
+              .call();
+          } catch (e) {
+            const response = await fetch(
+              `https://nft2.mewapi.io/tokens?owner=${this.account.address}&chain=mainnet`
+            ).then(res => {
+              return res.json();
+            });
+            const tokens = response.hasOwnProperty(
+              this.registrarAddress.toLowerCase()
+            )
+              ? response[this.registrarAddress.toLowerCase()].tokens
+              : [];
+            const nameMatched = tokens.find(item => {
+              if (
+                item.name === this.parsedHostName ||
+                item.id === this.labelHash
+              )
+                return item;
+            });
+
+            if (nameMatched) {
+              owner = this.account.address;
+            } else {
+              owner = '0x';
+            }
+          }
+          this.checkDeed();
+        } else {
+          owner = await this.ens.owner(this.parsedDomainName);
+        }
       } catch (e) {
         owner = '0x';
         Toast.responseHandler(e, false);
       }
       try {
-        resolverAddress = await this.ens.resolver(this.parsedDomainName).addr();
+        const publicResolverContract = new this.web3.eth.Contract(
+          ResolverAbi,
+          this.publicResolverAddress
+        );
+        this.resolverMultiCoinSupport = await publicResolverContract.methods
+          .supportsInterface(MULTICOIN_SUPPORT_INTERFACE)
+          .call();
       } catch (e) {
-        resolverAddress = '0x';
+        this.resolverMultiCoinSupport = false;
       }
-
-      this.nameHash = nameHashPckg.hash(this.parsedDomainName);
-      this.resolverAddress = resolverAddress;
-      this.deedOwner = highestBidder;
+      try {
+        const currentResolverAddress = await this.ensRegistryContract.methods
+          .resolver(this.nameHash)
+          .call();
+        const resolverContract = new this.web3.eth.Contract(
+          ResolverAbi,
+          currentResolverAddress
+        );
+        this.checkContentHash(resolverContract);
+        this.fetchTxtRecords(resolverContract);
+        const supportMultiCoin = await resolverContract.methods
+          .supportsInterface(MULTICOIN_SUPPORT_INTERFACE)
+          .call();
+        for (const type in this.supportedCoins)
+          this.supportedCoins[type].value = '';
+        if (supportMultiCoin) {
+          const promises = [];
+          const coinTypes = Object.keys(this.supportedCoins);
+          coinTypes.forEach(type => {
+            promises.push(
+              this.ens
+                .resolver(this.parsedDomainName, ResolverAbi)
+                .addr(this.supportedCoins[type].id)
+            );
+          });
+          await Promise.all(promises).then(vals => {
+            vals.forEach((address, idx) => {
+              if (address) {
+                this.supportedCoins[coinTypes[idx]].value = this.supportedCoins[
+                  coinTypes[idx]
+                ].encode(new Buffer(address.replace('0x', ''), 'hex'));
+              }
+            });
+          });
+        } else {
+          this.supportedCoins.ETH.value = await this.ens
+            .resolver(this.parsedDomainName)
+            .addr();
+        }
+      } catch (e) {
+        this.supportedCoins.ETH.value = '0x';
+      }
       this.owner = owner;
-      if (this.$route.fullPath === '/interface/dapps/manage-ens') {
-        this.$router.push({ path: 'manage-ens/owned' });
+      if (renew) {
+        this.$router.push({ name: 'ensRenewName' });
       } else {
-        this.$router.push({ path: 'owned' });
+        this.$router.push({ name: 'ensNameOwned' });
       }
       this.loading = false;
     },
-    async createTransaction(type) {
-      this.loading = true;
+    async checkContentHash(resolverContract) {
+      try {
+        const hash = await resolverContract.methods
+          .contenthash(this.nameHash)
+          .call();
+        this.contentHash = hash && hash !== '' ? contentHash.decode(hash) : '';
+      } catch (e) {
+        Toast.responseHandler(e, Toast.ERROR);
+      }
+    },
+    async fetchTxtRecords(resolver) {
+      this.checkIfController();
+      try {
+        const supportsTxt = await resolver.methods
+          .supportsInterface(TEXT_RECORD_SUPPORT_INTERFACE)
+          .call();
+        this.resolverTxtSupport = supportsTxt;
+        if (supportsTxt) {
+          this.recordContract = resolver;
+          const promises = [];
+          this.supportedTxt.forEach(txt => {
+            promises.push(
+              resolver.methods.text(this.nameHash, txt.name).call()
+            );
+          });
+          Promise.all(promises).then(vals => {
+            vals.forEach((val, idx) => {
+              this.txtRecords[this.supportedTxt[idx].name] = val;
+            });
+          });
+        } else {
+          throw new Error(this.$t('ens.error.txt-not-supported'));
+        }
+      } catch (e) {
+        this.recordContract = {};
+        this.txtRecords = {};
+        this.resolverTxtSupport = false;
+      }
+    },
+    async setRecord(obj) {
+      for (const _record in obj) {
+        this.txtRecords[_record] = obj[_record];
+      }
+      const isMigrate = await this.resolverMigrateAndSet();
+      if (isMigrate) return;
       const address = this.account.address;
-      const utils = this.web3.utils;
-      const bidHash = await this.registrarContract.methods
-        .shaBid(
-          this.labelHash,
-          address,
-          utils.toWei(this.bidAmount.toString(), 'ether'),
-          utils.sha3(this.secretPhrase)
-        )
-        .call();
-
-      let contractReference;
-      if (type === 'start') {
-        contractReference = this.registrarContract.methods.startAuctionsAndBid(
-          [this.labelHash],
-          bidHash
-        );
-      } else if (type === 'bid') {
-        contractReference = this.registrarContract.methods.newBid(bidHash);
-      } else if (type === 'reveal') {
-        contractReference = this.registrarContract.methods.unsealBid(
-          this.labelHash,
-          utils.toWei(this.bidAmount.toString(), 'ether'),
-          utils.sha3(this.secretPhrase)
+      const resolverAddr = this.publicResolverAddress;
+      const contract = this.recordContract;
+      const multicalls = [];
+      for (const i in obj) {
+        multicalls.push(
+          contract.methods
+            .setText(this.nameHash, i.toLowerCase(), obj[i])
+            .encodeABI()
         );
       }
 
-      const date = new Date();
-      const auctionDateEnd = date.setDate(date.getDate() + 5);
-      const revealDate = date.setDate(date.getDate() - 2);
-      const raw = {
+      const tx = {
         from: address,
-        value:
-          type === 'reveal' ? 0 : unit.toWei(this.bidMask, 'ether').toString(),
-        to: this.registrarAddress,
-        data: contractReference.encodeABI(),
-        name: this.domainName,
-        nameSHA3: utils.sha3(this.domainName),
-        bidAmount: this.bidAmount,
-        bidMask: this.bidMask,
-        secretPhrase: this.secretPhrase,
-        secretPhraseSHA3: utils.sha3(this.secretPhrase),
-        auctionDateEnd: new Date(auctionDateEnd),
-        revealDate: new Date(revealDate)
+        to: resolverAddr,
+        data: contract.methods.multicall(multicalls).encodeABI(),
+        gasPrice: new BigNumber(unit.toWei(this.gasPrice, 'gwei')).toFixed(),
+        value: 0
       };
-      this.raw = raw;
-      this.loading = false;
-      this.step = 2;
-    },
-    startAuctionAndBid() {
-      this.createTransaction('start');
-    },
-    sendBid() {
-      this.createTransaction('bid');
-    },
-    revealBid() {
-      this.createTransaction('reveal');
+      this.web3.eth.sendTransaction(tx).catch(err => {
+        Toast.responseHandler(err, Toast.ERROR);
+      });
     },
     updateSecretPhrase(e) {
       this.secretPhrase = e;
     },
     updateDuration(e) {
       this.duration = e;
-    },
-    updateBidAmount(val) {
-      this.bidAmount = val;
-    },
-    updateBidMask(val) {
-      this.bidMask = val;
     },
     generateKeyPhrase() {
       const wordsArray = [];

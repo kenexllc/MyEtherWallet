@@ -1,48 +1,36 @@
 <template>
   <b-modal
     ref="finneyModal"
-    title="FINNEY Connect"
+    :title="$t('accessWallet.finney.finney-connect')"
     hide-footer
     class="bootstrap-modal nopadding"
     centered
+    static
+    lazy
   >
-    <div class="finney-modal-content">
-      <div class="content-container">
-        <div class="finney-img">
-          <img :src="finneyImg" />
-        </div>
-        <div class="finney-text-container">
-          <div class="scan-container">
-            <p>
-              To connect please scan the QR code from FinneyWallet app on your
-              FINNEY device
-            </p>
-          </div>
-          <div class="qr-container">
-            <div class="large">
-              <qrcode :value="qrcode" :options="{ size: 186 }" />
-            </div>
-            <div class="small">
-              <qrcode :value="qrcode" :options="{ size: 125 }" />
-            </div>
-          </div>
-          <div class="text-container">
-            <a
-              href="http://shop.sirinlabs.com?rfsn=2397639.54fdf&utm_source=refersion&utm_medium=affiliate&utm_campaign=2397639.54fdf"
-              target="blank"
-              rel="noopener noreferrer"
-            >
-              <span>
-                Get your
-              </span>
-              <h3>
-                FINNEY™
+    <div class="finney-desktop">
+      <div class="modal-content-right">
+        <i18n path="accessWallet.finney.scan-info" tag="p">
+          <b slot="wallet">{{ $t('accessWallet.finney.finney-wallet') }}</b>
+          <b slot="finney-bc">{{ $t('accessWallet.finney.finney-bc') }}</b>
+        </i18n>
+        <qrcode
+          :value="qrcode"
+          :options="{ size: 186 }"
+          class="qrcode-container"
+        />
+        <div class="text-container">
+          <a
+            href="http://shop.sirinlabs.com?rfsn=2397639.54fdf&utm_source=refersion&utm_medium=affiliate&utm_campaign=2397639.54fdf"
+            target="blank"
+            rel="noopener noreferrer"
+          >
+            <i18n path="accessWallet.finney.get-finney" tag="p">
+              <h3 slot="finney-title">
+                {{ $t('accessWallet.finney.finney-title') }}
               </h3>
-              <span>
-                now
-              </span>
-            </a>
-          </div>
+            </i18n>
+          </a>
         </div>
       </div>
     </div>
@@ -52,27 +40,23 @@
 <script>
 import { MewConnectWallet } from '@/wallets';
 import { Toast } from '@/helpers';
-import { mapGetters } from 'vuex';
-import finneyImg from '@/assets/images/etc/finney.png';
+import { mapState, mapActions } from 'vuex';
 
 export default {
   data() {
     return {
-      qrcode: '',
-      finneyImg: finneyImg
+      qrcode: ''
     };
   },
   computed: {
-    ...mapGetters({
-      web3: 'web3'
-    })
+    ...mapState('main', ['web3'])
   },
   mounted() {
     this.$refs.finneyModal.$on('show', () => {
       new MewConnectWallet(this.generateQr)
         .then(wallet => {
-          if (!this.web3.eth) this.$store.dispatch('setWeb3Instance');
-          this.$store.dispatch('decryptWallet', [wallet]).then(() => {
+          if (!this.web3.eth) this.setWeb3Instance();
+          this.decryptWallet([wallet]).then(() => {
             this.$router.push({
               path: 'interface'
             });
@@ -84,6 +68,7 @@ export default {
     });
   },
   methods: {
+    ...mapActions('main', ['setWeb3Instance', 'decryptWallet']),
     generateQr(code) {
       this.qrcode = code;
     }

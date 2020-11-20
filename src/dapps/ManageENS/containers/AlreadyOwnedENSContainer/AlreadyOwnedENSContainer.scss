@@ -10,6 +10,28 @@
     padding: 20px 6px;
   }
 
+  .container-with-avatar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-around;
+    flex-direction: column;
+
+    .img-info-container {
+      align-items: center;
+      display: flex;
+      justify-content: center;
+      width: 100%;
+
+      img {
+        width: 75px;
+      }
+
+      .profile-img {
+        margin-right: 15px;
+      }
+    }
+  }
+
   .content-container {
     background-color: $light-green-1;
     border-radius: 5px;
@@ -28,6 +50,11 @@
       color: $dark-blue-1;
       font-size: 14px;
     }
+
+    .currency {
+      color: $dark-blue-2;
+      font-weight: bold;
+    }
   }
 }
 
@@ -45,18 +72,29 @@
   flex-direction: column;
   margin-top: 43px;
 
-  .finalize-button {
-    @extend %button-template;
-
-    background-color: $mew-green;
-    color: $white;
-  }
-
   .manage-button {
     @extend %button-template;
 
     border-color: $mew-green;
     background-color: $white;
     color: $mew-green;
+  }
+
+  .renew {
+    margin-top: 10px;
+  }
+}
+.deed-container {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+
+  .redeem-button {
+    @extend %button-template;
+
+    border-color: $mew-green;
+    background-color: $mew-green;
+    color: $white;
+    width: 150px;
   }
 }

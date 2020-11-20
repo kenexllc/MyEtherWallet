@@ -22,7 +22,11 @@ import {
   iolite,
   thundercore,
   solidum,
-  dexon
+  dexon,
+  lightstreamsNetwork,
+  rskMainnet,
+  rskTestnet,
+  ethercore
 } from './paths';
 export default [
   keepkeyEthereum,
@@ -48,5 +52,9 @@ export default [
   iolite,
   thundercore,
   solidum,
-  dexon
+  dexon,
+  lightstreamsNetwork,
+  rskMainnet,
+  rskTestnet,
+  ethercore
 ];

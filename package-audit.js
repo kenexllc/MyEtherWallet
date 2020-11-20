@@ -1,13 +1,12 @@
 const exec = require('child_process').exec;
 
-//tar package is not applicable to web and waiting for other packages to update
-const AUDIT_EXCEPTIONS = ['tar', 'js-yaml'];
+const AUDIT_EXCEPTIONS = ['decompress', 'http-proxy', 'findings', 'elliptic', 'dot-prop', 'serialize-javascript', 'handlebars', 'cryptiles', 'bl'];
 
 const execute = (command, callback) => {
   exec(
     command,
     {
-      maxBuffer: 2000 * 1024
+      maxBuffer: 100000 * 1024
     },
     (error, stdout, stderr) => {
       callback(stdout);

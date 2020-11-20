@@ -3,16 +3,26 @@ import { shallowMount } from '@vue/test-utils';
 import sinon from 'sinon';
 import InitialENSStateContainer from '@/dapps/ManageENS/containers/InitialENSStateContainer/InitialENSStateContainer.vue';
 import { Tooling } from '@@/helpers';
+import VueX from 'vuex';
+import { state, getters } from '@@/helpers/mockStore';
 
 describe('InitialENSStateContainer.vue', () => {
   let localVue, i18n, wrapper, store;
   const checkDomain = sinon.stub();
-  const domainName = '';
+  const domainName = 'domainName';
   beforeAll(() => {
     const baseSetup = Tooling.createLocalVueInstance();
     localVue = baseSetup.localVue;
     i18n = baseSetup.i18n;
-    store = baseSetup.store;
+    store = new VueX.Store({
+      modules: {
+        main: {
+          namespaced: true,
+          state,
+          getters
+        }
+      }
+    });
     Vue.config.warnHandler = () => {};
   });
 
@@ -22,18 +32,24 @@ describe('InitialENSStateContainer.vue', () => {
       i18n,
       store,
       attachToDocument: true,
-      propsData: { domainName, checkDomain }
+      propsData: { checkDomain }
     });
   });
 
-  xit('should render correct domain name', () => {
+  afterEach(() => {
+    wrapper.destroy();
+    wrapper = null;
+  });
+
+  it('should render correct domain name', () => {
+    wrapper.setProps({ domainName });
     expect(wrapper.vm.$el.querySelector('.domain-name input').value).toEqual(
-      domainName
+      wrapper.vm.$data.localDomainName
     );
   });
 
-  xit('should render correct localdomainName watch method', () => {
-    wrapper.setProps({ domainName: 'domainName11' });
+  it('should render correct localdomainName watch method', () => {
+    wrapper.setData({ localDomainName: 'localDomainName' });
     expect(wrapper.emitted().domainNameChange).toBeTruthy();
   });
 

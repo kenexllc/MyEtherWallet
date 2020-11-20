@@ -8,6 +8,8 @@ import ConfirmCollectionModal from '@/containers/ConfirmationContainer/component
 import VueQrcode from '@xkeshi/vue-qrcode';
 import sinon from 'sinon';
 import Web3 from 'web3';
+import VueX from 'vuex';
+import { state, getters } from '@@/helpers/mockStore';
 
 import { Tooling } from '@@/helpers';
 
@@ -35,7 +37,15 @@ describe('ConfirmationContainer.vue', () => {
     const baseSetup = Tooling.createLocalVueInstance();
     localVue = baseSetup.localVue;
     i18n = baseSetup.i18n;
-    store = baseSetup.store;
+    store = new VueX.Store({
+      modules: {
+        main: {
+          namespaced: true,
+          state,
+          getters
+        }
+      }
+    });
   });
 
   beforeEach(() => {
@@ -66,13 +76,15 @@ describe('ConfirmationContainer.vue', () => {
   it('should render correct transactionFee data', () => {
     const checkboxElement = wrapper.find('.sliding-switch-white .switch input');
     checkboxElement.trigger('click');
-    wrapper.setData({ transactionFee: new String(100) });
+    wrapper.setData({ transactionFee: String(100) });
+
     expect(
       wrapper.vm.$el
-        .querySelectorAll('.expended-info .grid-block')[3]
+        .querySelectorAll('.padding-container .grid-block')[3]
         .querySelectorAll('p')[1]
         .textContent.trim()
-    ).toEqual(wrapper.vm.$data.transactionFee + ' ETH');
+        .indexOf(wrapper.vm.$data.transactionFee)
+    ).toBeGreaterThan(-1);
   });
 
   it('should render correct fromAddress data', () => {
@@ -97,7 +109,7 @@ describe('ConfirmationContainer.vue', () => {
         .querySelectorAll('.grid-block')[1]
         .querySelectorAll('p')[1]
         .textContent.trim()
-    ).toEqual(wrapper.vm.$data.gasLimit + ' wei');
+    ).toEqual(wrapper.vm.$data.gasLimit);
   });
 
   it('should render correct gasPrice data', () => {
@@ -108,7 +120,7 @@ describe('ConfirmationContainer.vue', () => {
         .querySelectorAll('.grid-block')[2]
         .querySelectorAll('p')[1]
         .textContent.trim()
-    ).toEqual(wrapper.vm.gasPrice + ' gwei');
+    ).toEqual(wrapper.vm.gasPrice + ' Gwei');
   });
 
   it('should render correct nonce data', () => {

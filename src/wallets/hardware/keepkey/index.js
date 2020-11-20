@@ -15,9 +15,12 @@ import {
   calculateChainIdFromV
 } from '../../utils';
 import HDKey from 'hdkey';
-import { toBuffer } from 'ethereumjs-util';
-import ethTx from 'ethereumjs-tx';
+import { Misc } from '@/helpers';
+import { Transaction } from 'ethereumjs-tx';
 import errorHandler from './errorHandler';
+import store from '@/store';
+import commonGenerator from '@/helpers/commonGenerator';
+import Vue from 'vue';
 
 const { MessageType } = Messages;
 const {
@@ -88,9 +91,11 @@ class KeepkeyWallet {
       accountPath = this.basePath + '/' + idx;
     }
     const txSigner = async tx => {
-      tx = new ethTx(tx);
+      tx = new Transaction(tx, {
+        common: commonGenerator(store.state.main.network)
+      });
       const hexTx = getUint8Tx(tx);
-      const networkId = tx._chainId;
+      const networkId = tx.getChainId();
       hexTx.addressNList = bip32ToAddressNList(accountPath);
       const result = await this.keepkey.ethereumSignTx(
         hexTx,
@@ -105,10 +110,10 @@ class KeepkeyWallet {
       const signedChainId = calculateChainIdFromV(tx.v);
       if (signedChainId !== networkId)
         throw new Error(
-          'Invalid networkId signature returned. Expected: ' +
-            networkId +
-            ', Got: ' +
-            signedChainId,
+          Vue.$i18n.t('errorsGlobal.invalid-network-id-sig', {
+            got: signedChainId,
+            expected: networkId
+          }),
           'InvalidNetworkId'
         );
       return getSignTransactionObject(tx);
@@ -116,7 +121,7 @@ class KeepkeyWallet {
     const msgSigner = async msg => {
       const signMessage = new Messages.EthereumSignMessage();
       signMessage.setAddressNList(bip32ToAddressNList(accountPath));
-      signMessage.setMessage(new Uint8Array(toBuffer(msg)));
+      signMessage.setMessage(new Uint8Array(Misc.toBuffer(msg)));
       const [, response] = await this.keepkey.device.exchange(
         Messages.MessageType.MESSAGETYPE_ETHEREUMSIGNMESSAGE,
         signMessage

@@ -1,17 +1,20 @@
 <template>
   <b-modal
     ref="hardware"
-    :title="$t('accessWallet.accessByHardware')"
+    :title="$t('accessWallet.hardware.modal.title')"
     hide-footer
-    class="bootstrap-modal modal-hardware nopadding"
+    class="modal-hardware nopadding"
     centered
+    static
+    lazy
+    no-padding
+    dialog-class="hardware-wallet-dialog"
   >
     <div class="modal-content-container">
-      <finney-modal ref="finney" />
       <div class="d-block text-center">
-        <b-alert :show="mayNotBeAttached" fade variant="warning"
-          >Please make sure your device is connected</b-alert
-        >
+        <b-alert :show="mayNotBeAttached" fade variant="warning">
+          {{ $t('accessWallet.hardware.warning.not-connected') }}
+        </b-alert>
         <div class="button-options hardware-button-options">
           <wallet-option
             v-for="(item, idx) in items"
@@ -21,7 +24,7 @@
             :text="item.text"
             :name="item.name"
             :disabled="item.disabled"
-            :tooltip-msg="item.msg"
+            :tooltip-msg="$t(item.msg)"
             :link="item.link"
             @updateSelected="updateSelected"
           />
@@ -35,7 +38,7 @@
           ]"
           @click="continueAccess"
         >
-          {{ $t('accessWallet.accessDeviceAddresses') }}
+          {{ $t('accessWallet.hardware.modal.button-choose') }}
         </div>
       </div>
       <customer-support />
@@ -44,7 +47,6 @@
 </template>
 
 <script>
-import FinneyModal from '../FinneyModal';
 import CustomerSupport from '@/components/CustomerSupport';
 import ledger from '@/assets/images/icons/HardwareWallet/ledger.svg';
 import bitbox from '@/assets/images/icons/HardwareWallet/bitbox.svg';
@@ -52,41 +54,63 @@ import secalot from '@/assets/images/icons/HardwareWallet/secalot.svg';
 import trezor from '@/assets/images/icons/HardwareWallet/trezor.svg';
 import keepkey from '@/assets/images/icons/HardwareWallet/keepkey.svg';
 import finney from '@/assets/images/icons/button-finney-hover.png';
+import xwallet from '@/assets/images/icons/HardwareWallet/xwallet.svg';
+import bcvault from '@/assets/images/icons/HardwareWallet/bcvault.svg';
+import coolwallet from '@/assets/images/icons/HardwareWallet/coolwallet.svg';
 import WalletOption from '../WalletOption';
 import { Toast } from '@/helpers';
-import { isSupported } from 'u2f-api';
+import { isSupported, ensureSupport } from 'u2f-api';
 import platform from 'platform';
 import {
   KeepkeyWallet,
   TrezorWallet,
-  BitBoxWallet,
-  SecalotWallet
+  SecalotWallet,
+  BCVaultWallet,
+  CoolWallet
 } from '@/wallets';
 import {
   LEDGER as LEDGER_TYPE,
   TREZOR as TREZOR_TYPE,
-  BITBOX as BITBOX_TYPE,
   SECALOT as SECALOT_TYPE,
-  KEEPKEY as KEEPKEY_TYPE
+  KEEPKEY as KEEPKEY_TYPE,
+  XWALLET as XWALLET_TYPE,
+  FINNEY as FINNEY_TYPE,
+  COOLWALLET as COOLWALLET_TYPE,
+  BCVAULT as BCVAULT_TYPE
 } from '@/wallets/bip44/walletTypes';
 export default {
   components: {
     'customer-support': CustomerSupport,
-    'wallet-option': WalletOption,
-    'finney-modal': FinneyModal
+    'wallet-option': WalletOption
   },
   props: {
     networkAndAddressOpen: {
       type: Function,
-      default: function() {}
+      default: () => {}
     },
     hardwareWalletOpen: {
       type: Function,
-      default: function() {}
+      default: () => {}
+    },
+    bitboxSelectOpen: {
+      type: Function,
+      default: function () {}
     },
     ledgerAppOpen: {
       type: Function,
-      default: function() {}
+      default: () => {}
+    },
+    openFinney: {
+      type: Function,
+      default: () => {}
+    },
+    openXwallet: {
+      type: Function,
+      default: () => {}
+    },
+    openBcVault: {
+      type: Function,
+      default: () => {}
     }
   },
   data() {
@@ -104,23 +128,6 @@ export default {
           link: 'https://www.ledger.com?r=fa4b'
         },
         {
-          name: 'finney',
-          imgPath: finney,
-          text: 'FINNEY',
-          disabled: false,
-          msg: '',
-          link:
-            'http://shop.sirinlabs.com?rfsn=2397639.54fdf&utm_source=refersion&utm_medium=affiliate&utm_campaign=2397639.54fdf'
-        },
-        {
-          name: BITBOX_TYPE,
-          imgPath: bitbox,
-          text: 'Digital Bitbox',
-          disabled: false,
-          msg: '',
-          link: 'https://digitalbitbox.com/?ref=mew'
-        },
-        {
           name: TREZOR_TYPE,
           imgPath: trezor,
           text: 'Trezor',
@@ -135,6 +142,48 @@ export default {
           link: 'https://trezor.io/?offer_id=12&aff_id=2029'
         },
         {
+          name: KEEPKEY_TYPE,
+          imgPath: keepkey,
+          text: 'KeepKey',
+          disabled: false,
+          msg: '',
+          link: 'http://lddy.no/a4im'
+        },
+        {
+          name: COOLWALLET_TYPE,
+          imgPath: coolwallet,
+          text: 'CoolWallet',
+          disabled: false,
+          msg: '',
+          link: 'https://www.coolwallet.io/mew/?ref=myetherwallet1'
+        },
+        {
+          name: FINNEY_TYPE,
+          imgPath: finney,
+          text: 'FINNEY',
+          disabled: false,
+          msg: '',
+          link:
+            'http://shop.sirinlabs.com?rfsn=2397639.54fdf&utm_source=refersion&utm_medium=affiliate&utm_campaign=2397639.54fdf'
+        },
+        {
+          name: 'BitBox',
+          imgPath: bitbox,
+          text: 'BitBox',
+          disabled: false,
+          msg: '',
+          // link: 'https://shiftcrypto.ch/?ref=MEW'
+          link: ''
+        },
+        {
+          name: XWALLET_TYPE,
+          imgPath: xwallet,
+          text: 'XWallet',
+          disabled: false,
+          msg: '',
+          link: 'https://xwallet.pundix.com'
+        },
+        {
           name: SECALOT_TYPE,
           imgPath: secalot,
           text: 'Secalot',
@@ -143,46 +192,27 @@ export default {
           link: 'https://www.secalot.com/'
         },
         {
-          name: KEEPKEY_TYPE,
-          imgPath: keepkey,
-          text: 'KeepKey',
+          name: BCVAULT_TYPE,
+          imgPath: bcvault,
+          text: 'BC Vault',
           disabled: false,
           msg: '',
-          link: 'http://keepkey.go2cloud.org/aff_c?offer_id=1&aff_id=5561'
+          link: 'https://bc-vault.com/?wpam_id=53'
         }
       ]
     };
   },
   mounted() {
-    isSupported().then(res => {
-      this.items.forEach(item => {
-        const u2fhw = [SECALOT_TYPE, LEDGER_TYPE, BITBOX_TYPE];
-        const inMobile = [SECALOT_TYPE, KEEPKEY_TYPE];
-        const webUsb = [KEEPKEY_TYPE];
-
-        if (webUsb.includes(item.name)) {
-          const disable =
-            window.location.protocol !== 'https:' ||
-            !window ||
-            !window.navigator ||
-            !window.navigator.usb;
-          item.disabled = disable;
-          item.msg = disable ? this.$t('errorsGlobal.browserNonWebUsb') : '';
-        }
-        if (u2fhw.includes(item.name)) {
-          item.disabled = !res;
-          item.msg = !res ? this.$t('errorsGlobal.browserNonU2f') : '';
-        }
-        if (this.isMobile()) {
-          const disable = !inMobile.includes(item.name);
-          item.disabled = disable;
-          item.msg = disable ? this.$t('errorsGlobal.noMobileSupport') : '';
-        }
+    ensureSupport()
+      .then(() => {
+        this.checkIfSupported();
+      })
+      .catch(() => {
+        Toast.responseHandler(
+          this.$t('errorsGlobal.u2f-not-supported'),
+          Toast.ERROR
+        );
       });
-    });
-    this.$refs.hardware.$on('hidden', () => {
-      this.selected = '';
-    });
   },
   methods: {
     isMobile() {
@@ -190,6 +220,42 @@ export default {
         typeof window.orientation !== 'undefined' ||
         navigator.userAgent.indexOf('IEMobile') !== -1
       );
+    },
+    checkIfSupported() {
+      try {
+        const _self = this;
+        isSupported().then(res => {
+          _self.items.forEach(item => {
+            const u2fhw = [SECALOT_TYPE, LEDGER_TYPE];
+            const inMobile = [SECALOT_TYPE, KEEPKEY_TYPE];
+            const webUsb = [KEEPKEY_TYPE, LEDGER_TYPE];
+
+            if (webUsb.includes(item.name)) {
+              const disable =
+                window.location.protocol !== 'https:' ||
+                !window ||
+                !window.navigator ||
+                !window.navigator.usb;
+              item.disabled = disable;
+              item.msg = disable ? 'errorsGlobal.browser-non-web-usb' : '';
+            }
+            if (u2fhw.includes(item.name)) {
+              item.disabled = !res;
+              item.msg = !res ? 'errorsGlobal.browser-non-u2f' : '';
+            }
+            if (_self.isMobile()) {
+              const disable = !inMobile.includes(item.name);
+              item.disabled = disable;
+              item.msg = disable ? 'errorsGlobal.no-mobile-support' : '';
+            }
+          });
+        });
+        _self.$refs.hardware.$on('hidden', () => {
+          _self.selected = '';
+        });
+      } catch (e) {
+        Toast.responseHandler(e, Toast.ERROR);
+      }
     },
     continueAccess() {
       const showPluggedInReminder = setTimeout(() => {
@@ -211,16 +277,13 @@ export default {
               TrezorWallet.errorHandler(e);
             });
           break;
-        case BITBOX_TYPE:
-          this.$emit('hardwareRequiresPassword', {
-            walletConstructor: BitBoxWallet,
-            hardwareBrand: 'DigitalBitbox'
-          });
+        case 'BitBox':
+          this.bitboxSelectOpen();
+          this.$refs.hardware.hide();
           break;
         case SECALOT_TYPE:
           this.$emit('hardwareRequiresPassword', {
-            walletConstructor: SecalotWallet,
-            hardwareBrand: 'Secalot'
+            walletConstructor: SecalotWallet
           });
           break;
         case KEEPKEY_TYPE:
@@ -233,17 +296,38 @@ export default {
               KeepkeyWallet.errorHandler(e);
             });
           break;
-        case 'finney':
-          this.$refs.finney.$refs.finneyModal.show();
+        case FINNEY_TYPE:
+          this.openFinney();
+          this.$refs.hardware.hide();
+          break;
+        case XWALLET_TYPE:
+          this.openXwallet();
+          this.$refs.hardware.hide();
+          break;
+        case BCVAULT_TYPE:
+          // eslint-disable-next-line
+          const bcvaultInstance = BCVaultWallet();
+          bcvaultInstance
+            .init()
+            .then(res => {
+              this.openBcVault(res, bcvaultInstance);
+            })
+            .catch(e => {
+              BCVaultWallet.errorHandler(e);
+            });
+          break;
+        case COOLWALLET_TYPE:
+          this.$emit('hardwareRequiresPassword', {
+            walletConstructor: CoolWallet
+          });
           break;
         default:
           Toast.responseHandler(
-            new Error('No switch address for given account.'),
+            new Error(this.$t('errosGlobal.something-went-wrong')),
             Toast.ERROR
           );
           break;
       }
-      this.$refs.hardware.hide();
     },
     updateSelected(ref) {
       if (this.selected !== ref) {
@@ -260,4 +344,10 @@ export default {
 @import 'HardwareModal-desktop.scss';
 @import 'HardwareModal-tablet.scss';
 @import 'HardwareModal-mobile.scss';
+</style>
+
+<style>
+.hardware-wallet-dialog {
+  max-width: 700px !important;
+}
 </style>

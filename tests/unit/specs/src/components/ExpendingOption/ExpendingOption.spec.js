@@ -1,9 +1,9 @@
-import ExpendingOption from '@/components/ExpendingOption/ExpendingOption.vue';
+import ExpandingOption from '@/components/ExpandingOption/ExpandingOption.vue';
 import { shallowMount } from '@vue/test-utils';
 
 import { Tooling } from '@@/helpers';
 
-describe('ExpendingOption.vue', () => {
+describe('ExpandingOption.vue', () => {
   let localVue, i18n, wrapper, store;
 
   beforeAll(() => {
@@ -14,12 +14,17 @@ describe('ExpendingOption.vue', () => {
   });
 
   beforeEach(() => {
-    wrapper = shallowMount(ExpendingOption, {
+    wrapper = shallowMount(ExpandingOption, {
       localVue,
       i18n,
       store,
       attachToDocument: true
     });
+  });
+
+  afterEach(() => {
+    wrapper.destroy();
+    wrapper = null;
   });
 
   it('should render correct title props', () => {
@@ -34,36 +39,24 @@ describe('ExpendingOption.vue', () => {
 
   it('should render correct hidebottomborder props', () => {
     expect(
-      wrapper
-        .find('.expending-option')
-        .classes()
-        .indexOf('hide-bottom-border')
+      wrapper.find('.expanding-option').classes().indexOf('hide-bottom-border')
     ).toBe(-1);
     wrapper.setProps({ hidebottomborder: true });
     expect(
-      wrapper
-        .find('.expending-option')
-        .classes()
-        .indexOf('hide-bottom-border')
+      wrapper.find('.expanding-option').classes().indexOf('hide-bottom-border')
     ).toBeGreaterThan(-1);
   });
 
   it('should render correct expanded data', () => {
     expect(
-      wrapper
-        .find('.contnet-container')
-        .classes()
-        .indexOf('expanded')
+      wrapper.find('.contnet-container').classes().indexOf('expanded')
     ).toBe(-1);
     wrapper.setData({ expanded: true });
     expect(
-      wrapper
-        .find('.contnet-container')
-        .classes()
-        .indexOf('expanded')
+      wrapper.find('.contnet-container').classes().indexOf('expanded')
     ).toBeGreaterThan(-1);
   });
-  describe('ExpendingOption.vue Methods', () => {
+  describe('ExpandingOption.vue Methods', () => {
     it('should toggle expanded data when click checkbox', () => {
       expect(wrapper.vm.$data.expanded).toBe(false);
       wrapper.find('label.switch input').trigger('click');

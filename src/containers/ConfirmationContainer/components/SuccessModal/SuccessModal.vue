@@ -5,24 +5,31 @@
     hide-footer
     hide-header
     class="bootstrap-modal no-padding"
+    static
+    lazy
   >
     <div class="modal-content-block">
+      <img src="@/assets/images/modal/garlands.png" />
       <div class="d-block text-center">
         <i class="check-icon fa fa-check" aria-hidden="true" />
-        <h2 class="title">{{ $t('confirmation.success') }}</h2>
+        <h2 class="title">
+          {{ successTitle ? successTitle : $t('confirmation.success') }}
+        </h2>
         <p>{{ message }}</p>
       </div>
 
       <div class="buttons">
-        <a
-          v-if="etherscanLink"
-          :href="etherscanLink"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <standard-button :options="buttonCheckEtherscan" />
-        </a>
-        <standard-button :options="buttonOk" @click.native="hideModal" />
+        <standard-button
+          v-show="txHashExlporrer"
+          :options="buttonCheckEtherscan"
+          :click-function="goToLink"
+        />
+        <standard-button
+          v-show="network.type.name === 'ETH' && txHashExlporrer"
+          :options="buttonCheckEthVm"
+          :click-function="goToEthVm"
+        />
+        <standard-button :options="buttonOk" :click-function="hideModal" />
       </div>
     </div>
     <!-- .modal-content-block -->
@@ -31,7 +38,7 @@
 
 <script>
 import StandardButton from '@/components/Buttons/StandardButton';
-import { mapGetters } from 'vuex';
+import { mapState } from 'vuex';
 import { Misc } from '@/helpers';
 
 export default {
@@ -51,26 +58,41 @@ export default {
       type: String,
       default: '/'
     },
-    etherscanLink: {
+    txHashExlporrer: {
+      type: String,
+      default: null
+    },
+    successTitle: {
       type: String,
       default: null
     }
   },
   computed: {
-    ...mapGetters({
-      network: 'network'
-    }),
+    ...mapState('main', ['network', 'wallet']),
     buttonCheckEtherscan() {
       return {
         // eslint-disable-next-line
-        title: `Check Status on ${this.explorrerName}`,
+        title: this.$t('sendTx.success.button-check-explorer', {
+          explorrerName: this.explorrerName
+        }),
+        buttonStyle: 'green-border',
+        fullWidth: true
+      };
+    },
+    buttonCheckEthVm() {
+      return {
+        // eslint-disable-next-line
+        title: this.$t('sendTx.success.button-check-explorer', {
+          explorrerName: this.$t('footer.ethvm')
+        }),
         buttonStyle: 'green-border',
         fullWidth: true
       };
     },
     buttonOk() {
       return {
-        title: this.linkMessage === '' ? 'Ok' : this.linkMessage,
+        title:
+          this.linkMessage === '' ? this.$t('common.ok') : this.linkMessage,
         buttonStyle: 'green',
         fullWidth: true
       };
@@ -80,9 +102,26 @@ export default {
     }
   },
   methods: {
+    goToLink() {
+      // eslint-disable-next-line
+      window.open(this.txHashExlporrer, '_blank');
+    },
+    goToEthVm() {
+      const ethVmLink = this.txHashExlporrer.replace(
+        'https://etherscan.io/tx/',
+        'https://www.ethvm.com/tx/'
+      );
+      // eslint-disable-next-line
+      window.open(ethVmLink, '_blank');
+    },
     hideModal() {
       if (this.linkTo !== '/') {
         this.$router.push({ path: this.linkTo });
+      } else if (
+        this.linkTo === '/' &&
+        this.successTitle === 'Congratulations'
+      ) {
+        this.$router.push({ path: '/' });
       }
       this.$refs.success.hide();
     }

@@ -1,12 +1,24 @@
 <template lang="html">
   <div class="transfer-registrar-container">
     <div class="transfer-registrar-content">
-      <h3>Congratulations! {{ fullDomainName }} is available!</h3>
-      <p>Do you want to register {{ fullDomainName }}?</p>
+      <h3>
+        {{
+          isCommitment
+            ? $t('ens.commit.is-available', { domain: fullDomainName })
+            : isExpired
+            ? `${fullDomainName} is expired!`
+            : fullDomainName
+        }}
+      </h3>
+      <p>
+        {{
+          isCommitment
+            ? $t('ens.commit.register-domain', { domain: fullDomainName })
+            : `Do you wanna renew ${fullDomainName} ?`
+        }}
+      </p>
       <div class="secret-phrase-container">
-        <label for="range-slider"
-          >How many years do you want to keep the name?</label
-        >
+        <label for="range-slider">{{ $t('ens.commit.how-many-years') }}</label>
         <b-form-input
           id="range-slider"
           v-model="duration"
@@ -15,26 +27,41 @@
           max="20"
           step="1"
         />
-        <div>{{ duration > 1 ? `${duration} years` : `${duration} year` }}</div>
+        <div>
+          {{
+            duration > 1
+              ? $tc('ens.commit.year', 2, { duration: duration })
+              : $tc('ens.commit.year', 1)
+          }}
+        </div>
+        <div
+          v-if="network.type.name === 'ETH'"
+          class="estimate-price-container"
+        >
+          Estimated bid price: {{ estimatedPrice.ethAmount }}
+          {{ network.type.currencyName }} (${{ estimatedPrice.usd }})
+        </div>
       </div>
       <div class="transfer-registrar-button">
         <button
           :class="[
             'large-round-button-green-filled',
-            loading ? 'disabled' : ''
+            loading ? 'disabled' : '',
+            info.disable ? 'disabled' : ''
           ]"
-          @click="createCommitment"
+          @click="funcCall"
         >
           <span v-show="!loading">
-            Register
+            {{ isCommitment ? $t('ens.register') : 'Renew' }}
           </span>
           <i v-show="loading" class="fa fa-spinner fa-spin" />
         </button>
+        <span v-show="info.disable"> {{ $t(info.msg) }} </span>
       </div>
     </div>
     <interface-bottom-text
-      :link-text="$t('interface.helpCenter')"
-      :question="$t('interface.haveIssues')"
+      :link-text="$t('common.help-center')"
+      :question="$t('common.have-issues')"
       link="https://kb.myetherwallet.com"
     />
   </div>
@@ -42,6 +69,8 @@
 
 <script>
 import InterfaceBottomText from '@/components/InterfaceBottomText';
+import { mapState } from 'vuex';
+import BigNumber from 'bignumber.js';
 
 export default {
   components: {
@@ -54,7 +83,7 @@ export default {
     },
     createCommitment: {
       type: Function,
-      default: function() {}
+      default: function () {}
     },
     loading: {
       type: Boolean,
@@ -63,6 +92,18 @@ export default {
     tld: {
       type: String,
       default: ''
+    },
+    usd: {
+      type: Number,
+      default: 0
+    },
+    renewName: {
+      type: Function,
+      default: function () {}
+    },
+    isExpired: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -71,8 +112,47 @@ export default {
     };
   },
   computed: {
+    ...mapState('main', ['account', 'network']),
     fullDomainName() {
       return `${this.hostName}.${this.tld}`;
+    },
+    pricingByLength() {
+      if (this.hostName.length === 3) {
+        return 640;
+      } else if (this.hostName.length === 4) {
+        return 160;
+      }
+
+      return 5;
+    },
+    estimatedPrice() {
+      const ethAmount = new BigNumber(this.pricingByLength)
+        .dividedBy(this.usd)
+        .times(this.duration)
+        .toFixed(2);
+
+      const usd = new BigNumber(this.pricingByLength).times(this.duration);
+
+      return {
+        usd: usd,
+        ethAmount: ethAmount
+      };
+    },
+    info() {
+      const balance = this.account.balance;
+      if (balance === '0') {
+        return {
+          disable: true,
+          msg: 'ens.commit.no-balance'
+        };
+      }
+      return {
+        disable: false,
+        msg: ''
+      };
+    },
+    isCommitment() {
+      return this.$router.currentRoute.path.includes('create-commitment');
     }
   },
   watch: {
@@ -83,6 +163,15 @@ export default {
   mounted() {
     if (this.hostName === '') {
       this.$router.push('/interface/dapps/manage-ens');
+    }
+  },
+  methods: {
+    funcCall() {
+      if (this.isCommitment) {
+        this.createCommitment();
+      } else {
+        this.renewName();
+      }
     }
   }
 };

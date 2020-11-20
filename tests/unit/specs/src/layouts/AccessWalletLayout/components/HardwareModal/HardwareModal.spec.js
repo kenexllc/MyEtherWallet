@@ -16,6 +16,7 @@ describe('HardwareModal.vue', () => {
   });
 
   beforeEach(() => {
+    // eslint-disable-next-line
     wrapper = shallowMount(HardwareModal, {
       localVue,
       i18n,
@@ -25,8 +26,12 @@ describe('HardwareModal.vue', () => {
     });
   });
 
+  afterEach(() => {
+    wrapper.destroy();
+    wrapper = null;
+  });
+
   it('should render correct contents', () => {
-    console.log(wrapper.find('li').exists());
     // const liElements = wrapper.findAll('li');
     //const liElement = liElements.at(0);
     //liElement.trigger('click');

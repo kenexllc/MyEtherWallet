@@ -1,53 +1,122 @@
 <template lang="html">
   <div class="already-owned-container">
-    <finalize-modal
-      ref="finalizeModal"
-      :domain-name="hostName"
-      :finalize="finalize"
-    />
-    <h3>{{ fullDomainName }} {{ $t('dapps.alreadyOwned') }}.</h3>
+    <h3>{{ $t('ens.already-owned', { domain: fullDomainName }) }}</h3>
+    <div v-if="hasAvatar" class="container-with-avatar content-container">
+      <div class="img-info-container">
+        <div class="profile-img">
+          <img :src="convertedAvatar" />
+        </div>
+        <div class="profile-info">
+          <p v-if="txtRecordsWithValue['url']">
+            Website:
+            <a :href="'mailto:' + txtRecordsWithValue['url']" target="_blank">
+              {{ txtRecordsWithValue['url'] }}
+            </a>
+          </p>
+          <p v-if="txtRecordsWithValue['email']">
+            Email:
+            <a :href="'mailto:' + txtRecordsWithValue['email']" target="_blank">
+              {{ txtRecordsWithValue['email'] }}
+            </a>
+          </p>
+          <p v-if="txtRecordsWithValue['vnd.twitter']">
+            Twitter:
+            <a
+              :href="
+                'https://twitter.com/' + txtRecordsWithValue['vnd.twitter']
+              "
+              target="_blank"
+            >
+              {{ txtRecordsWithValue['vnd.twitter'] }}
+            </a>
+          </p>
+          <p v-if="txtRecordsWithValue['vnd.github']">
+            Github:
+            <a
+              :href="'https://github.com/' + txtRecordsWithValue['vnd.github']"
+              target="_blank"
+            >
+              {{ txtRecordsWithValue['vnd.github'] }}
+            </a>
+          </p>
+          <p v-if="txtRecordsWithValue['vnd.peepeth']">
+            Peepeth:
+            <a
+              :href="
+                'https://peepeth.com/' + txtRecordsWithValue['vnd.peepeth']
+              "
+              target="_blank"
+            >
+              {{ txtRecordsWithValue['vnd.peepeth'] }}
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
     <div class="content-container">
-      <p class="label">{{ $t('dapps.labelHash') }}({{ fullDomainName }}):</p>
+      <p class="label">{{ $t('ens.label-hash') }}({{ hostName }}):</p>
       <p class="content">{{ labelHash }}</p>
     </div>
     <div class="content-container">
-      <p class="label">{{ $t('dapps.nameHash') }}({{ hostName }}):</p>
+      <p class="label">{{ $t('ens.name-hash') }}({{ fullDomainName }}):</p>
       <p class="content">{{ nameHash }}</p>
     </div>
+    <div v-if="contentHash && contentHash !== ''" class="content-container">
+      <p class="label">Content Hash({{ hostName }}):</p>
+      <p class="content">{{ contentHash }}</p>
+    </div>
     <div class="content-container">
-      <p class="label">{{ $t('dapps.owner') }}:</p>
+      <p class="label">{{ $t('ens.owner') }}:</p>
       <p class="content">{{ owner }}</p>
     </div>
-    <div v-if="deedOwner != '0x'" class="content-container">
-      <p class="label">{{ $t('dapps.deedOwner') }}:</p>
-      <p class="content">{{ deedOwner }}</p>
+    <div v-if="hasDeed && isDeedOwner" class="content-container deed-container">
+      <div>
+        <p class="label">Deed Value:</p>
+        <p class="content">{{ deedValueEth }} {{ network.type.name }}</p>
+      </div>
+      <div class="submit-container">
+        <button
+          type="submit"
+          class="redeem-button"
+          @click.prevent="releaseDeed()"
+        >
+          {{ $t('ens.release-deed') }}
+        </button>
+      </div>
     </div>
-    <div class="content-container">
-      <p class="label">{{ $t('dapps.resolverAddr') }}:</p>
-      <p class="content">{{ resolverAddress }}</p>
+    <div v-show="resolverMultiCoinSupport" class="content-container">
+      <h4>{{ $t('ens.multi-coin') }}:</h4>
+      <div v-for="(v, k) in supportedCoinsWithValue" :key="k.id">
+        <span class="currency"
+          >{{ v.symbol }} {{ $t('common.lowercase-addr') }}:
+        </span>
+        <span class="content">{{ v.value }}</span>
+      </div>
+    </div>
+    <div v-show="hasAnyTxt" class="content-container">
+      <h4>{{ $t('ens.txt-record') }}:</h4>
+      <div v-for="(value, key) in txtRecordsWithValue" :key="key">
+        <span class="currency">{{ key }}: </span>
+        <span class="content">{{ value }}</span>
+      </div>
     </div>
     <div class="owner-options">
       <button
         v-if="
-          deedOwner.toLowerCase() === account.address.toLowerCase() &&
-            owner === '0x0000000000000000000000000000000000000000'
+          owner.toLowerCase() === account.address.toLowerCase() && !isExpired
         "
-        class="finalize-button"
-        @click="openFinalizeModal"
-      >
-        {{ $t('dapps.finalize') }}
-      </button>
-      <button
-        v-if="owner.toLowerCase() === account.address.toLowerCase()"
         class="manage-button"
         @click="manageEns"
       >
-        {{ $t('dapps.manage') }}
+        {{ $t('ens.manage') }}
+      </button>
+      <button class="manage-button renew" @click="navigateToRenew">
+        {{ $t('ens.renew') }}
       </button>
     </div>
     <interface-bottom-text
-      :link-text="$t('interface.helpCenter')"
-      :question="$t('interface.haveIssues')"
+      :link-text="$t('common.help-center')"
+      :question="$t('common.have-issues')"
       link="https://kb.myetherwallet.com"
     />
   </div>
@@ -55,13 +124,11 @@
 
 <script>
 import InterfaceBottomText from '@/components/InterfaceBottomText';
-import FinalizeModal from '../../components/FinalizeModal/';
-
-import { mapGetters } from 'vuex';
+import { fromWei } from 'web3-utils';
+import { mapState } from 'vuex';
 export default {
   components: {
-    'interface-bottom-text': InterfaceBottomText,
-    'finalize-modal': FinalizeModal
+    'interface-bottom-text': InterfaceBottomText
   },
   props: {
     labelHash: {
@@ -76,14 +143,6 @@ export default {
       type: String,
       default: ''
     },
-    deedOwner: {
-      type: String,
-      default: ''
-    },
-    resolverAddress: {
-      type: String,
-      default: ''
-    },
     hostName: {
       type: String,
       default: ''
@@ -92,20 +151,88 @@ export default {
       type: String,
       default: ''
     },
-    finalize: {
+    supportedCoins: {
+      type: Object,
+      default: () => {}
+    },
+    resolverMultiCoinSupport: {
+      type: Boolean,
+      default: false
+    },
+    txtRecords: {
+      type: Object,
+      default: () => {}
+    },
+    isExpired: {
+      type: Boolean,
+      default: false
+    },
+    navigateToRenew: {
       type: Function,
       default: () => {}
+    },
+    deedValue: {
+      type: String,
+      default: '0'
+    },
+    hasDeed: {
+      type: Boolean,
+      default: false
+    },
+    isDeedOwner: {
+      type: Boolean,
+      default: false
+    },
+    releaseDeed: {
+      type: Function,
+      default: () => {}
+    },
+    contentHash: {
+      type: String,
+      default: ''
     }
   },
   data() {
-    return {};
+    return {
+      locAvatar: ''
+    };
   },
   computed: {
-    ...mapGetters({
-      account: 'account'
-    }),
+    ...mapState('main', ['account', 'network']),
+    deedValueEth() {
+      return fromWei(this.deedValue, 'ether');
+    },
     fullDomainName() {
       return `${this.hostName}.${this.tld}`;
+    },
+    supportedCoinsWithValue() {
+      const coins = {};
+      for (const k in this.supportedCoins)
+        if (this.supportedCoins[k].value) coins[k] = this.supportedCoins[k];
+      return coins;
+    },
+    convertedAvatar() {
+      if (this.hasAvatar) {
+        return `https://img.mewapi.io/?image=${this.txtRecordsWithValue.avatar}&width=75&height=75&fit=scale-down`;
+      }
+      return '';
+    },
+    hasAvatar() {
+      return this.txtRecordsWithValue.hasOwnProperty('avatar');
+    },
+    txtRecordsWithValue() {
+      const txtRecords = {};
+      for (const k in this.txtRecords)
+        if (this.txtRecords[k]) txtRecords[k] = this.txtRecords[k];
+      return txtRecords;
+    },
+    hasAnyTxt() {
+      for (const i in this.txtRecords) {
+        if (this.txtRecords[i] !== '') {
+          return true;
+        }
+      }
+      return false;
     }
   },
   mounted() {
@@ -114,9 +241,6 @@ export default {
     }
   },
   methods: {
-    openFinalizeModal() {
-      this.$refs.finalizeModal.$refs.finalize.show();
-    },
     manageEns() {
       this.$router.push('manage');
     }
